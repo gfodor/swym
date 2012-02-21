@@ -8167,7 +8167,7 @@ if(env === 'jav8') {
 /*global define: false, java: false, Packages: false */
 
 define('jav8/optimize', ['logger'], function (logger) {
-    throw new Exception("Not supported");
+    throw new Error("Not supported");
 });
 
 }

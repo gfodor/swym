@@ -10,6 +10,6 @@ public class TestFoo {
     @Test
     public void testfoo() throws ScriptException, IOException {
         Environment env = new Environment();
-        env.start();
+        env.start("test/js/job1.js");
     }
 }

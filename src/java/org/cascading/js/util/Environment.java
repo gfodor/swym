@@ -8,8 +8,8 @@ import java.io.File;
 import java.io.IOException;
 
 public class Environment {
-    public void start() throws IOException, ScriptException {
+    public void start(String script) throws IOException, ScriptException {
         Shell shell = new Shell();
-        shell.evaluateScript(FileUtils.readFileToString(new File("src/js/r.js")), new String[] { "src/js/go.js" } );
+        shell.evaluateScript(FileUtils.readFileToString(new File("src/js/r.js")), new String[] { script } );
     }
 }
