@@ -1,0 +1,14 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<history>
+   <processor signature="gcc noversion nomachine -c -O1 -fPIC -I../../../System/Library/Frameworks/JavaVM.framework/Versions/A/Headers -I../../../System/Library/Frameworks/JavaVM.framework/Versions/A/Headers/win32 -I../../../System/Library/Frameworks/JavaVM.framework/Versions/A/Headers/linux -I../../../System/Library/Frameworks/JavaVM.framework/Versions/A/Headers/darwin -I../../../System/Library/Frameworks/JavaVM.framework/Versions/A/Headers -I../v8-read-only -I../v8-read-only/include">
+      <target file="jav8.o" lastModified="1359c46ef88">
+         <source file="../../../jni/jav8.cpp" lastModified="135970c7330"/>
+      </target>
+      <target file="Utils.o" lastModified="1359c46fb40">
+         <source file="../../../jni/Utils.cpp" lastModified="135970c7330"/>
+      </target>
+      <target file="Wrapper.o" lastModified="1359c46f370">
+         <source file="../../../jni/Wrapper.cpp" lastModified="135970c7330"/>
+      </target>
+   </processor>
+</history>
