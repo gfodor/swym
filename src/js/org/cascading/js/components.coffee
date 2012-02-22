@@ -50,15 +50,31 @@ define ->
     class Pipe
       is_pipe: true
 
-      constructor: (@name, @parent_pipe) ->
-
   Each:
     class Each extends Pipe
       is_each: true
 
+      constructor: (@type, @callback) ->
+
+  EachTypes:
+    FUNCTION: 0
+    FILTER: 1
+
   Every:
     class Every extends Pipe
       is_every: true
+
+  GroupBy:
+    class GroupBy extends Pipe
+      is_group_by: true
+
+      constructor: (@group_fields, params) ->
+        throw new Error("Invalid group by fields #{@group_fields}") unless typeof(@group_fields) == "object"
+        @sort_fields = params?.sort_fields ? []
+
+  CoGroup:
+    class CoGroup extends Pipe
+      is_co_group: true
 
   Assembly:
     class

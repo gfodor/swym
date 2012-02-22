@@ -3,7 +3,7 @@
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor; child.__super__ = parent.prototype; return child; };
 
   define(function() {
-    var Each, Every, Pipe;
+    var CoGroup, Each, Every, GroupBy, Pipe;
     return {
       Cascade: (function() {
 
@@ -73,12 +73,9 @@
       })(),
       Pipe: Pipe = (function() {
 
-        Pipe.prototype.is_pipe = true;
+        function Pipe() {}
 
-        function Pipe(name, parent_pipe) {
-          this.name = name;
-          this.parent_pipe = parent_pipe;
-        }
+        Pipe.prototype.is_pipe = true;
 
         return Pipe;
 
@@ -87,15 +84,20 @@
 
         __extends(Each, _super);
 
-        function Each() {
-          Each.__super__.constructor.apply(this, arguments);
-        }
-
         Each.prototype.is_each = true;
+
+        function Each(type, callback) {
+          this.type = type;
+          this.callback = callback;
+        }
 
         return Each;
 
       })(Pipe),
+      EachTypes: {
+        FUNCTION: 0,
+        FILTER: 1
+      },
       Every: Every = (function(_super) {
 
         __extends(Every, _super);
@@ -107,6 +109,37 @@
         Every.prototype.is_every = true;
 
         return Every;
+
+      })(Pipe),
+      GroupBy: GroupBy = (function(_super) {
+
+        __extends(GroupBy, _super);
+
+        GroupBy.prototype.is_group_by = true;
+
+        function GroupBy(group_fields, params) {
+          var _ref;
+          this.group_fields = group_fields;
+          if (typeof this.group_fields !== "object") {
+            throw new Error("Invalid group by fields " + this.group_fields);
+          }
+          this.sort_fields = (_ref = params != null ? params.sort_fields : void 0) != null ? _ref : [];
+        }
+
+        return GroupBy;
+
+      })(Pipe),
+      CoGroup: CoGroup = (function(_super) {
+
+        __extends(CoGroup, _super);
+
+        function CoGroup() {
+          CoGroup.__super__.constructor.apply(this, arguments);
+        }
+
+        CoGroup.prototype.is_co_group = true;
+
+        return CoGroup;
 
       })(Pipe),
       Assembly: (function() {

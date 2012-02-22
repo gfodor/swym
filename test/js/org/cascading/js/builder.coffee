@@ -8,5 +8,15 @@ require paths, (builder, schemes) ->
       builder.cascade ($) ->
         $.flow 'word_counter', ->
           $.source 'input', $.tap("test.txt", new schemes.TextLine())
-          console.log "in flow"
+
+          $.assembly 'input', ->
+            $.apply (tuple, emitter) ->
+              emitter({ word: word }) for words in tuple.line.match(/\S+/)
+
+            $.insert capitalized: (tuple) ->
+              tuple.word.toUpperCase()
+
+            $.group_by 'capitalized', ->
+
+          $.sink 'input', $.tap("count.txt", new schemes.TextLine())
 

@@ -7,6 +7,7 @@ define ["./components", "./schemes", "./helpers", "./common"], (components, sche
     constructor: ->
       @components = { }
       @assembly_stack = []
+      @current_group_by = null
 
     register: (component) ->
       throw new Error("Duplicate component #{component.name}") if @components[component.name]?

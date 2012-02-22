@@ -11,10 +11,14 @@ define ["./components", "./schemes"], (components, schemes) ->
 
     source: (name, tap) ->
       throw new Error "No flow created" unless @flow
+      throw new Error "Cannot define source inside assembly" if this.current_assembly()?
+
       @flow.add_source(name, tap)
 
     sink: (name, tap) ->
       throw new Error "No flow created" unless @flow
+      throw new Error "Cannot define sink inside assembly" if this.current_assembly()?
+
       @flow.add_sink(name, tap)
 
     tap: (path, scheme) ->
@@ -31,12 +35,46 @@ define ["./components", "./schemes"], (components, schemes) ->
       @assembly_stack.pop()
 
     current_assembly: ->
-      throw new Error("No assembly in scope") unless stack[0]?.is_assembly?
       @assembly_stack[0]
 
+    group_by: (fields, params, f) ->
+      throw new Error("Cannot nest group bys") if this.is_in_group_by()
+
+      f = params if typeof(params) == "function" && !f?
+
+      if typeof(fields) == "string"
+        fields = [fields]
+
+      @current_group_by = new components.GroupBy(fields, params)
+      this.current_assembly().add_pipe(@current_group_by)
+      f()
+      @current_group_by = null
+
+    is_in_group_by: ->
+      @current_group_by?
+
   EachPipes:
-    insert: ->
-    each: (f) ->
+    insert: (params) ->
+      for name, value of params
+        if typeof(value) == 'function'
+          this.apply (tuple, emitter) ->
+            tuple[name] = value(tuple)
+        else
+          this.apply (tuple, emitter) ->
+            tuple[name] = value
+
+    apply: (callback) ->
+      throw new Error("Cannot define apply pipe inside of group by") if this.is_in_group_by()
+      pipe = new components.Each(components.EachTypes.FUNCTION, callback)
+      this.current_assembly().add_pipe(pipe)
+      pipe
+
+    filter: (callback) ->
+      throw new Error("Cannot define filter pipe inside of group by") if this.is_in_group_by()
+      pipe = new components.Each(components.EachTypes.FILTER, callback)
+      this.current_assembly().add_pipe(pipe)
+      pipe
+
 
   EveryPipes:
     count: ->

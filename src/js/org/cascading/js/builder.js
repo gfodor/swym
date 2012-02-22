@@ -17,6 +17,7 @@
       function Builder() {
         this.components = {};
         this.assembly_stack = [];
+        this.current_group_by = null;
       }
 
       Builder.prototype.register = function(component) {
