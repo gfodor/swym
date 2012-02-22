@@ -8,8 +8,19 @@ import java.io.File;
 import java.io.IOException;
 
 public class Environment {
-    public void start(String script) throws IOException, ScriptException {
+    public void start(String script, boolean loadTestFramework) throws IOException, ScriptException {
         Shell shell = new Shell();
-        shell.evaluateScript(FileUtils.readFileToString(new File("src/js/r.js")), new String[] { script } );
+
+        String[] scriptsToRun = null;
+
+        if (loadTestFramework) {
+            shell.evaluateScript(FileUtils.readFileToString(new File("lib/js/jasmine.js")), new String[] {});
+        } 
+
+        shell.evaluateScript(FileUtils.readFileToString(new File("lib/js/r.js")), new String[] { script });
+
+        if (loadTestFramework) {
+            shell.evaluateScript(FileUtils.readFileToString(new File("test/js/execute.js")), new String[] { });
+        }
     }
 }

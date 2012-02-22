@@ -1,0 +1,179 @@
+<?xml version="1.0"?>
+
+<project name="cascading" default="compile" basedir="." xmlns:ivy="antlib:org.apache.ivy.ant">
+
+  <dirname property="cascading.basedir" file="${ant.file.cascading}"/>
+
+  <property name="test.haltonerror" value="true"/>
+
+  <property name="src" location="${cascading.basedir}/src/java"/>
+  <property name="src.test" location="${cascading.basedir}/test/java"/>
+
+  <property name="build" location="${cascading.basedir}/build/"/>
+  <property name="build.test" location="${cascading.basedir}/build/test"/>
+  <property name="build.classes" location="${build}/java"/>
+
+  <property name="test.results" location="${build}/testresults"/>
+  <property name="test.showoutput" value="yes"/>
+
+  <property name="lib" location="${cascading.basedir}/lib/java"/>
+  <property name="lib.jav8" location="${lib}/../jav8"/>
+  <property name="dist" location="${cascading.basedir}/dist"/>
+  <property name="javadoc" location="${cascading.basedir}/javadoc"/>
+  <property name="log" location="${cascading.basedir}/log"/>
+
+  <property name="jar.cascading" value="cascadingjs-0.1.jar"/>
+
+  <path id="build.class.path">
+    <pathelement location="${build}"/>
+    <pathelement location="${build.test}"/>
+  </path>
+
+  <path id="jars.class.path">
+    <fileset dir="${build}" erroronmissingdir="false">
+      <include name="cascading*.jar"/>
+    </fileset>
+  </path>
+
+  <path id="deps.class.path">
+    <fileset dir="${lib}">
+      <include name="*.jar"/>
+    </fileset>
+  </path>
+
+  <path id="project.class.path">
+    <path refid="build.class.path"/>
+    <path refid="deps.class.path"/>
+  </path>
+
+  <path id="package.class.path">
+    <path refid="jars.class.path"/>
+    <path refid="deps.class.path"/>
+  </path>
+
+  <path id="project.src.path">
+    <pathelement location="${src}"/>
+  </path>
+
+  <path id="javadoc.src.path">
+    <pathelement location="${src}"/>
+  </path>
+
+  <!-- sets up environment -->
+  <target name="init">
+    <mkdir dir="${build}"/>
+    <mkdir dir="${build.test}"/>
+    <mkdir dir="${test.results}"/>
+
+    <property name="CLASSPATH" refid="project.class.path"/>
+    <!--<echo message="${CLASSPATH}"/>-->
+  </target>
+
+  <target name="compile" depends="init">
+    <javac srcdir="${src}" destdir="${build}" verbose="off" debug="${javac.debug}" includeantruntime="false">
+      <classpath refid="project.class.path"/>
+    </javac>
+
+    <copy todir="${build}">
+      <fileset dir="${src}">
+        <exclude name="**/*.java"/>
+      </fileset>
+    </copy>
+
+    <javac srcdir="${src.test}" destdir="${build.test}" verbose="off" debug="${javac.debug}" includeantruntime="false">
+      <classpath refid="project.class.path"/>
+    </javac>
+
+    <copy todir="${build.test}">
+      <fileset dir="${src.test}">
+        <exclude name="**/*.java"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!--target name="javadoc" depends="init">
+    <echo message="creating cascading javadoc..."/>
+    <delete dir="${javadoc}"/>
+    <mkdir dir="${javadoc}"/>
+
+    <javadoc sourcepathref="javadoc.src.path"
+             destdir="${javadoc}"
+             packagenames="cascading.*"
+             windowtitle="Cascading ${cascading.release.major}">
+      <classpath refid="project.class.path"/>
+      <link href="http://java.sun.com/javase/6/docs/api/"/>
+      <link href="http://dist.codehaus.org/janino/javadoc/"/>
+      <link href="http://hadoop.apache.org/common/docs/r0.20.2/api/"/>
+      <bottom><![CDATA[<i>Copyright &#169; 2007-2010 Concurrent, Inc. All Rights Reserved.</i>]]></bottom>
+    </javadoc>
+  </target-->
+
+  <target name="testjs" depends="init, compile">
+    <java classname="org.cascading.js.JsTestRunner" fork="true">
+      <sysproperty key="java.library.path" value="${lib.jav8}"/>
+
+      <arg value="org/cascading/js/builder.js"></arg>
+
+      <classpath>
+        <path refid="project.class.path"/>
+        <pathelement path="${java.class.path}"/>
+      </classpath>
+    </java>
+  </target>
+
+  <!-- runs JUnit tests -->
+  <target name="test" depends="init, jar">
+    <mkdir dir="build/test/log"/>
+
+    <junit printsummary="true" showoutput="${test.showoutput}" fork="yes" haltonerror="no" haltonfailure="no" dir="."
+           maxmemory="756m">
+
+      <sysproperty key="hadoop.log.dir" value="build/test/log"/>
+      <sysproperty key="java.library.path" value="${lib.jav8}"/>
+
+      <!--<jvmarg value="-Xdebug"/>--><!--<jvmarg value="-Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=5005"/>-->
+
+      <classpath>
+        <path refid="project.class.path"/>
+        <pathelement path="${java.class.path}"/>
+      </classpath>
+
+      <formatter type="plain" usefile="true"/>
+      <formatter type="plain" usefile="false"/>
+
+      <test name="${testcase}" todir="${test.results}" if="testcase" haltonfailure="${test.haltonerror}"/>
+
+      <batchtest todir="${test.results}" haltonfailure="${test.haltonerror}" unless="testcase">
+        <fileset dir="${src.test}">
+          <include name="**/*Test.java"/>
+        </fileset>
+      </batchtest>
+    </junit>
+
+  </target>
+
+
+  <!-- jar build -->
+  <target name="jar" depends="compile">
+
+    <delete file="${build}/${jar.cascading}"/>
+    <delete dir="${build.core}/lib"/>
+
+    <manifest file="${build}/MANIFEST.MF">
+      <attribute name="Built-By" value="${user.name}"/>
+    </manifest>
+
+    <jar jarfile="${build}/${jar.cascading}" manifest="${build}/MANIFEST.MF" compress="yes">
+      <fileset dir="${build}"/>
+    </jar>
+
+  </target>
+
+  <!-- cleans up build artifacts -->
+  <target name="clean">
+    <delete dir="${build}"/>
+    <delete dir="${javadoc}"/>
+  </target>
+
+
+</project>
