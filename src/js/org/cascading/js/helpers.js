@@ -62,21 +62,21 @@
           for (name in params) {
             value = params[name];
             if (typeof value === 'function') {
-              _results.push(this.apply(function(tuple, emitter) {
+              _results.push(this.map(function(tuple, emitter) {
                 return tuple[name] = value(tuple);
               }));
             } else {
-              _results.push(this.apply(function(tuple, emitter) {
+              _results.push(this.map(function(tuple, emitter) {
                 return tuple[name] = value;
               }));
             }
           }
           return _results;
         },
-        apply: function(callback) {
+        map: function(callback) {
           var pipe;
           if (this.is_in_group_by()) {
-            throw new Error("Cannot define apply pipe inside of group by");
+            throw new Error("Cannot define map pipe inside of group by");
           }
           pipe = new components.Each(components.EachTypes.FUNCTION, callback);
           this.current_assembly().add_pipe(pipe);

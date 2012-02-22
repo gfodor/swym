@@ -10,7 +10,7 @@ require paths, (builder, schemes) ->
           $.source 'input', $.tap("test.txt", new schemes.TextLine())
 
           $.assembly 'input', ->
-            $.apply (tuple, emitter) ->
+            $.map (tuple, emitter) ->
               emitter({ word: word }) for words in tuple.line.match(/\S+/)
 
             $.insert capitalized: (tuple) ->

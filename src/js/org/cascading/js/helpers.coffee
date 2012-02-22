@@ -57,14 +57,14 @@ define ["./components", "./schemes"], (components, schemes) ->
     insert: (params) ->
       for name, value of params
         if typeof(value) == 'function'
-          this.apply (tuple, emitter) ->
+          this.map (tuple, emitter) ->
             tuple[name] = value(tuple)
         else
-          this.apply (tuple, emitter) ->
+          this.map (tuple, emitter) ->
             tuple[name] = value
 
-    apply: (callback) ->
-      throw new Error("Cannot define apply pipe inside of group by") if this.is_in_group_by()
+    map: (callback) ->
+      throw new Error("Cannot define map pipe inside of group by") if this.is_in_group_by()
       pipe = new components.Each(components.EachTypes.FUNCTION, callback)
       this.current_assembly().add_pipe(pipe)
       pipe

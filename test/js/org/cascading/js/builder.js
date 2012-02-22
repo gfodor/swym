@@ -20,7 +20,7 @@
           return $.flow('word_counter', function() {
             $.source('input', $.tap("test.txt", new schemes.TextLine()));
             $.assembly('input', function() {
-              $.apply(function(tuple, emitter) {
+              $.map(function(tuple, emitter) {
                 var words, _i, _len, _ref, _results;
                 _ref = tuple.line.match(/\S+/);
                 _results = [];
