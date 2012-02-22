@@ -46,8 +46,32 @@ define ->
 
       constructor: (@path, @type) ->
 
+  Pipe:
+    class Pipe
+      is_pipe: true
+
+      constructor: (@name, @parent_pipe) ->
+
+  Each:
+    class Each extends Pipe
+      is_each: true
+
+  Every:
+    class Every extends Pipe
+      is_every: true
+
   Assembly:
     class
       is_assembly: true
 
-      constructor: (@name) ->
+      constructor: (@name, parent) ->
+        if parent.is_flow?
+          @head_pipe = new Pipe(name)
+        else
+          @head_pipe = new Pipe(name, parent.tail_pipe)
+
+        @tail_pipe = @head_pipe
+
+      add_pipe: (pipe) ->
+        pipe.parent_pipe = @tail_pipe
+        @tail_pipe = pipe
