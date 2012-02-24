@@ -1,4 +1,10 @@
 define ->
+  EachTypes =
+    GENERATOR: 0
+    FILTER: 1
+
+  EachTypes: EachTypes
+
   Cascade:
     class
       is_cascade: true
@@ -10,6 +16,10 @@ define ->
         throw new Error("Invalid flow") unless flow.is_flow?
         @flows.unshift(flow)
         flow
+
+      to_java: ->
+        jflows = for flow in @flows
+          flow.to_java()
 
   Flow:
     class
@@ -24,7 +34,7 @@ define ->
         throw new Error("Duplicate assembly #{assembly.name}") if @assemblies[assembly.name]
         throw new Error("Not an assembly") unless assembly.is_assembly?
 
-        @assemblies[assembly.name]
+        @assemblies[assembly.name] = assembly
         assembly
 
       add_source: (name, tap) ->
@@ -40,25 +50,84 @@ define ->
 
         @sinks[name] = tap
         tap
+
+      to_java: ->
+        jsources = {}
+        jsinks = {}
+
+        for name, tap of @sources
+          jsources[name] = tap.to_java()
+
+        for name, tap of @sinks
+          jsinks[name] = tap.to_java()
+
+        jtail_pipes = []
+
+        for name, assembly of @assemblies
+          jtail_pipes.unshift(assembly.to_java())
+
+        Cascading.Factory.Flow(@name, jsources, jsinks, jtail_pipes)
+
   Tap:
     class
       is_tap: true
 
-      constructor: (@path, @type) ->
+      constructor: (@path, @scheme) ->
+
+      to_java: ->
+        jscheme = @scheme.to_java()
+        Cascading.Factory.Hfs(jscheme, @path)
 
   Pipe:
     class Pipe
+      @registerPipeCallback: (callback, pipe_index, callback_type) ->
+        callback_type ?= "default"
+        this.pipeCallbacks ?= {}
+        this.pipeCallbacks[pipe_index] ?= {}
+        this.pipeCallbacks[pipe_index][callback_type] = callback
+
+      @invokePipeCallback: ->
+        pipe_index = arguments[0]
+        callback_type = arguments[1]
+
+        callback_type ?= "default"
+        callback = this.pipeCallbacks[pipe_index][callback_type]
+        callback.apply(this, arguments[2...arguments.length])
+
+      @getNextPipeIndex: ->
+        this.current_pipe_index ?= 0
+        this.current_pipe_index += 1
+
       is_pipe: true
+
+      constructor: (@name, @parent_pipe) ->
+        @parent_pipe ?= null
+        @pipe_index = Pipe.getNextPipeIndex()
+
+      to_java: ->
+        parent_jpipe = @parent_pipe?.to_java()
+
+        if parent_jpipe?
+          Cascading.Factory.Pipe(@name, parent_jpipe)
+        else
+          Cascading.Factory.Pipe(@name)
 
   Each:
     class Each extends Pipe
       is_each: true
 
-      constructor: (@type, @callback) ->
+      constructor: (@type, outer_callback, @argument_selector, @result_fields) ->
+        super
 
-  EachTypes:
-    FUNCTION: 0
-    FILTER: 1
+        @callback = (tuple, emitter) ->
+          outer_callback(tuple, (t) -> emitter.emit(t))
+
+        Pipe.registerPipeCallback(@callback, @pipe_index)
+
+      to_java: (parent_pipe) ->
+        if @type == EachTypes.GENERATOR
+          parent_jpipe = @parent_pipe?.to_java()
+          Cascading.Factory.GeneratorEach(@argument_selector, @result_fields, Cascading.EnvironmentArgs, @pipe_index, parent_jpipe)
 
   Every:
     class Every extends Pipe
@@ -91,3 +160,6 @@ define ->
       add_pipe: (pipe) ->
         pipe.parent_pipe = @tail_pipe
         @tail_pipe = pipe
+
+      to_java: ->
+        @tail_pipe.to_java(@tail_pipe.parent_pipe)

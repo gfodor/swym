@@ -5,7 +5,8 @@
       Components: {
         cascade: function(f) {
           this.cascade = new components.Cascade();
-          return f(this);
+          f(this);
+          return this.cascade;
         },
         flow: function(name, f) {
           if (!this.cascade) throw new Error("No cascade created");
@@ -61,24 +62,29 @@
           _results = [];
           for (name in params) {
             value = params[name];
-            if (typeof value === 'function') {
-              _results.push(this.map(function(tuple, emitter) {
-                return tuple[name] = value(tuple);
-              }));
-            } else {
-              _results.push(this.map(function(tuple, emitter) {
-                return tuple[name] = value;
-              }));
-            }
+            _results.push((function() {
+              var n, v;
+              n = name;
+              v = value;
+              if (typeof v === 'function') {
+                return this.map(function(tuple, emitter) {
+                  return tuple[n] = v(tuple);
+                });
+              } else {
+                return this.map(function(tuple, emitter) {
+                  return tuple[n] = v;
+                });
+              }
+            })());
           }
           return _results;
         },
-        map: function(callback) {
+        generator: function(argument_selector, result_fields, callback) {
           var pipe;
           if (this.is_in_group_by()) {
             throw new Error("Cannot define map pipe inside of group by");
           }
-          pipe = new components.Each(components.EachTypes.FUNCTION, callback);
+          pipe = new components.Each(components.EachTypes.GENERATOR, callback, argument_selector, result_fields);
           this.current_assembly().add_pipe(pipe);
           return pipe;
         },

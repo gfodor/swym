@@ -25,7 +25,12 @@
         function _Class(fields) {
           this.fields = fields;
           this.scheme_type = "TextLine";
+          if (this.fields == null) this.fields = ["line"];
         }
+
+        _Class.prototype.to_java = function() {
+          return Cascading.Factory.TextLine(this.fields);
+        };
 
         return _Class;
 

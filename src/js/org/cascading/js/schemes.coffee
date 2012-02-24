@@ -10,3 +10,7 @@ define ->
     class extends Scheme
       constructor: (@fields) ->
         @scheme_type = "TextLine"
+        @fields ?= ["line"]
+
+      to_java: ->
+        Cascading.Factory.TextLine(@fields)

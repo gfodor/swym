@@ -3,6 +3,7 @@ define ["./components", "./schemes"], (components, schemes) ->
     cascade: (f) ->
       @cascade = new components.Cascade()
       f(this)
+      @cascade
 
     flow: (name, f) ->
       throw new Error "No cascade created" unless @cascade
@@ -56,16 +57,20 @@ define ["./components", "./schemes"], (components, schemes) ->
   EachPipes:
     insert: (params) ->
       for name, value of params
-        if typeof(value) == 'function'
-          this.map (tuple, emitter) ->
-            tuple[name] = value(tuple)
-        else
-          this.map (tuple, emitter) ->
-            tuple[name] = value
+        (->
+          n = name
+          v = value
 
-    map: (callback) ->
+          if typeof(v) == 'function'
+            this.map (tuple, emitter) ->
+              tuple[n] = v(tuple)
+          else
+            this.map (tuple, emitter) ->
+              tuple[n] = v)()
+
+    generator: (argument_selector, result_fields, callback) ->
       throw new Error("Cannot define map pipe inside of group by") if this.is_in_group_by()
-      pipe = new components.Each(components.EachTypes.FUNCTION, callback)
+      pipe = new components.Each(components.EachTypes.GENERATOR, callback, argument_selector, result_fields)
       this.current_assembly().add_pipe(pipe)
       pipe
 

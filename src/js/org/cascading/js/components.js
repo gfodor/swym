@@ -3,8 +3,13 @@
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor; child.__super__ = parent.prototype; return child; };
 
   define(function() {
-    var CoGroup, Each, Every, GroupBy, Pipe;
+    var CoGroup, Each, EachTypes, Every, GroupBy, Pipe;
+    EachTypes = {
+      GENERATOR: 0,
+      FILTER: 1
+    };
     return {
+      EachTypes: EachTypes,
       Cascade: (function() {
 
         _Class.prototype.is_cascade = true;
@@ -17,6 +22,20 @@
           if (flow.is_flow == null) throw new Error("Invalid flow");
           this.flows.unshift(flow);
           return flow;
+        };
+
+        _Class.prototype.to_java = function() {
+          var flow, jflows;
+          return jflows = (function() {
+            var _i, _len, _ref, _results;
+            _ref = this.flows;
+            _results = [];
+            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+              flow = _ref[_i];
+              _results.push(flow.to_java());
+            }
+            return _results;
+          }).call(this);
         };
 
         return _Class;
@@ -38,7 +57,7 @@
             throw new Error("Duplicate assembly " + assembly.name);
           }
           if (assembly.is_assembly == null) throw new Error("Not an assembly");
-          this.assemblies[assembly.name];
+          this.assemblies[assembly.name] = assembly;
           return assembly;
         };
 
@@ -56,6 +75,29 @@
           return tap;
         };
 
+        _Class.prototype.to_java = function() {
+          var assembly, jsinks, jsources, jtail_pipes, name, tap, _ref, _ref2, _ref3;
+          jsources = {};
+          jsinks = {};
+          _ref = this.sources;
+          for (name in _ref) {
+            tap = _ref[name];
+            jsources[name] = tap.to_java();
+          }
+          _ref2 = this.sinks;
+          for (name in _ref2) {
+            tap = _ref2[name];
+            jsinks[name] = tap.to_java();
+          }
+          jtail_pipes = [];
+          _ref3 = this.assemblies;
+          for (name in _ref3) {
+            assembly = _ref3[name];
+            jtail_pipes.unshift(assembly.to_java());
+          }
+          return Cascading.Factory.Flow(this.name, jsources, jsinks, jtail_pipes);
+        };
+
         return _Class;
 
       })(),
@@ -63,19 +105,64 @@
 
         _Class.prototype.is_tap = true;
 
-        function _Class(path, type) {
+        function _Class(path, scheme) {
           this.path = path;
-          this.type = type;
+          this.scheme = scheme;
         }
+
+        _Class.prototype.to_java = function() {
+          var jscheme;
+          jscheme = this.scheme.to_java();
+          return Cascading.Factory.Hfs(jscheme, this.path);
+        };
 
         return _Class;
 
       })(),
       Pipe: Pipe = (function() {
 
-        function Pipe() {}
+        Pipe.registerPipeCallback = function(callback, pipe_index, callback_type) {
+          var _base;
+          if (callback_type == null) callback_type = "default";
+          if (this.pipeCallbacks == null) this.pipeCallbacks = {};
+          if ((_base = this.pipeCallbacks)[pipe_index] == null) {
+            _base[pipe_index] = {};
+          }
+          return this.pipeCallbacks[pipe_index][callback_type] = callback;
+        };
+
+        Pipe.invokePipeCallback = function() {
+          var callback, callback_type, pipe_index;
+          pipe_index = arguments[0];
+          callback_type = arguments[1];
+          if (callback_type == null) callback_type = "default";
+          callback = this.pipeCallbacks[pipe_index][callback_type];
+          return callback.apply(this, arguments.slice(2, arguments.length));
+        };
+
+        Pipe.getNextPipeIndex = function() {
+          if (this.current_pipe_index == null) this.current_pipe_index = 0;
+          return this.current_pipe_index += 1;
+        };
 
         Pipe.prototype.is_pipe = true;
+
+        function Pipe(name, parent_pipe) {
+          this.name = name;
+          this.parent_pipe = parent_pipe;
+          if (this.parent_pipe == null) this.parent_pipe = null;
+          this.pipe_index = Pipe.getNextPipeIndex();
+        }
+
+        Pipe.prototype.to_java = function() {
+          var parent_jpipe, _ref;
+          parent_jpipe = (_ref = this.parent_pipe) != null ? _ref.to_java() : void 0;
+          if (parent_jpipe != null) {
+            return Cascading.Factory.Pipe(this.name, parent_jpipe);
+          } else {
+            return Cascading.Factory.Pipe(this.name);
+          }
+        };
 
         return Pipe;
 
@@ -86,18 +173,30 @@
 
         Each.prototype.is_each = true;
 
-        function Each(type, callback) {
+        function Each(type, outer_callback, argument_selector, result_fields) {
           this.type = type;
-          this.callback = callback;
+          this.argument_selector = argument_selector;
+          this.result_fields = result_fields;
+          Each.__super__.constructor.apply(this, arguments);
+          this.callback = function(tuple, emitter) {
+            return outer_callback(tuple, function(t) {
+              return emitter.emit(t);
+            });
+          };
+          Pipe.registerPipeCallback(this.callback, this.pipe_index);
         }
+
+        Each.prototype.to_java = function(parent_pipe) {
+          var parent_jpipe, _ref;
+          if (this.type === EachTypes.GENERATOR) {
+            parent_jpipe = (_ref = this.parent_pipe) != null ? _ref.to_java() : void 0;
+            return Cascading.Factory.GeneratorEach(this.argument_selector, this.result_fields, Cascading.EnvironmentArgs, this.pipe_index, parent_jpipe);
+          }
+        };
 
         return Each;
 
       })(Pipe),
-      EachTypes: {
-        FUNCTION: 0,
-        FILTER: 1
-      },
       Every: Every = (function(_super) {
 
         __extends(Every, _super);
@@ -159,6 +258,10 @@
         _Class.prototype.add_pipe = function(pipe) {
           pipe.parent_pipe = this.tail_pipe;
           return this.tail_pipe = pipe;
+        };
+
+        _Class.prototype.to_java = function() {
+          return this.tail_pipe.to_java(this.tail_pipe.parent_pipe);
         };
 
         return _Class;

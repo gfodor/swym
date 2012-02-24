@@ -5,18 +5,20 @@ paths = ("../../../../../src/js/org/cascading/js/#{module}" for module in module
 require paths, (builder, schemes) ->
   describe "job builder", ->
     it "should work", ->
-      builder.cascade ($) ->
+      c = builder.cascade ($) ->
         $.flow 'word_counter', ->
           $.source 'input', $.tap("test.txt", new schemes.TextLine())
 
           $.assembly 'input', ->
-            $.map (tuple, emitter) ->
+            $.generator ["line"], ["word"], (tuple, emitter) ->
               emitter({ word: word }) for words in tuple.line.match(/\S+/)
 
-            $.insert capitalized: (tuple) ->
-              tuple.word.toUpperCase()
+            #$.insert capitalized: (tuple) ->
+            #  tuple.word.toUpperCase()
 
-            $.group_by 'capitalized', ->
+            #$.group_by 'capitalized', ->
 
-          $.sink 'input', $.tap("count.txt", new schemes.TextLine())
+          $.sink 'input', $.tap("output", new schemes.TextLine())
+
+      c.to_java()
 
