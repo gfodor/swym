@@ -4,6 +4,7 @@
 
   define(function() {
     var CoGroup, Each, EachTypes, Every, GroupBy, Pipe;
+    console.log("creating components");
     EachTypes = {
       GENERATOR: 0,
       FILTER: 1
@@ -124,25 +125,28 @@
         Pipe.registerPipeCallback = function(callback, pipe_index, callback_type) {
           var _base;
           if (callback_type == null) callback_type = "default";
-          if (this.pipeCallbacks == null) this.pipeCallbacks = {};
-          if ((_base = this.pipeCallbacks)[pipe_index] == null) {
+          if (Pipe.pipeCallbacks == null) Pipe.pipeCallbacks = {};
+          if ((_base = Pipe.pipeCallbacks)[pipe_index] == null) {
             _base[pipe_index] = {};
           }
-          return this.pipeCallbacks[pipe_index][callback_type] = callback;
+          return Pipe.pipeCallbacks[pipe_index][callback_type] = callback;
         };
 
         Pipe.invokePipeCallback = function() {
-          var callback, callback_type, pipe_index;
+          var call, callback, callback_type, emitter, pipe_index, tuple;
           pipe_index = arguments[0];
           callback_type = arguments[1];
+          tuple = arguments[2];
+          emitter = arguments[3];
+          call = arguments[4];
           if (callback_type == null) callback_type = "default";
-          callback = this.pipeCallbacks[pipe_index][callback_type];
-          return callback.apply(this, arguments.slice(2, arguments.length));
+          callback = Pipe.pipeCallbacks[pipe_index][callback_type];
+          return callback.apply(Pipe, [tuple, emitter, call]);
         };
 
         Pipe.getNextPipeIndex = function() {
-          if (this.current_pipe_index == null) this.current_pipe_index = 0;
-          return this.current_pipe_index += 1;
+          if (Pipe.current_pipe_index == null) Pipe.current_pipe_index = 0;
+          return Pipe.current_pipe_index += 1;
         };
 
         Pipe.prototype.is_pipe = true;
@@ -166,7 +170,7 @@
 
         return Pipe;
 
-      })(),
+      }).call(this),
       Each: Each = (function(_super) {
 
         __extends(Each, _super);
@@ -178,9 +182,9 @@
           this.argument_selector = argument_selector;
           this.result_fields = result_fields;
           Each.__super__.constructor.apply(this, arguments);
-          this.callback = function(tuple, emitter) {
+          this.callback = function(tuple, emitter, call) {
             return outer_callback(tuple, function(t) {
-              return emitter.emit(t);
+              return emitter.emit(t, call);
             });
           };
           Pipe.registerPipeCallback(this.callback, this.pipe_index);

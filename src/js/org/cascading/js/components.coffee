@@ -1,4 +1,6 @@
 define ->
+  console.log("creating components")
+
   EachTypes =
     GENERATOR: 0
     FILTER: 1
@@ -80,21 +82,25 @@ define ->
 
   Pipe:
     class Pipe
-      @registerPipeCallback: (callback, pipe_index, callback_type) ->
+      @registerPipeCallback: (callback, pipe_index, callback_type) =>
         callback_type ?= "default"
         this.pipeCallbacks ?= {}
         this.pipeCallbacks[pipe_index] ?= {}
         this.pipeCallbacks[pipe_index][callback_type] = callback
 
-      @invokePipeCallback: ->
+      @invokePipeCallback: =>
         pipe_index = arguments[0]
         callback_type = arguments[1]
+        tuple = arguments[2]
+        emitter = arguments[3]
+        call = arguments[4]
 
         callback_type ?= "default"
         callback = this.pipeCallbacks[pipe_index][callback_type]
-        callback.apply(this, arguments[2...arguments.length])
 
-      @getNextPipeIndex: ->
+        callback.apply(this, [tuple, emitter, call])
+
+      @getNextPipeIndex: =>
         this.current_pipe_index ?= 0
         this.current_pipe_index += 1
 
@@ -119,8 +125,8 @@ define ->
       constructor: (@type, outer_callback, @argument_selector, @result_fields) ->
         super
 
-        @callback = (tuple, emitter) ->
-          outer_callback(tuple, (t) -> emitter.emit(t))
+        @callback = (tuple, emitter, call) ->
+          outer_callback(tuple, (t) -> emitter.emit(t, call))
 
         Pipe.registerPipeCallback(@callback, @pipe_index)
 

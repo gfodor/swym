@@ -1,9 +1,0 @@
-Testsuite: org.cascading.js.FooTest
-Tests run: 1, Failures: 0, Errors: 0, Time elapsed: 0.122 sec
-------------- Standard Output ---------------
->> Jasmine Running something should increment...
->> Suite: passed
->> 1 spec, 0 failures
-------------- ---------------- ---------------
-
-Testcase: testfoo took 0.113 sec

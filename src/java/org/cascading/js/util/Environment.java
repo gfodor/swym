@@ -1,5 +1,6 @@
 package org.cascading.js.util;
 
+import lu.flier.script.V8Object;
 import lu.flier.tools.shell.Shell;
 import org.apache.commons.io.FileUtils;
 
@@ -74,5 +75,9 @@ public class Environment {
 
     public Object extractObject(String name) {
         return shell.extractObject(name);
+    }
+
+    public V8Object createObject() {
+        return shell.createObject();
     }
 }

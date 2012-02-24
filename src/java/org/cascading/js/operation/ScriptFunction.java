@@ -20,6 +20,8 @@ public class ScriptFunction extends BaseOperation<V8OperationContext> implements
 
     @Override
     public void prepare( FlowProcess flowProcess, OperationCall<V8OperationContext> operationCall ) {
+        System.err.println("NEW PIPE");
+
         Environment env = new Environment();
         try {
             env.start(environmentArgs);
@@ -45,6 +47,8 @@ public class ScriptFunction extends BaseOperation<V8OperationContext> implements
     }
 
     public void cleanup(cascading.flow.FlowProcess flowProcess, cascading.operation.OperationCall<V8OperationContext> operationCall) {
+        System.err.println("CLEAN PIPE");
+
         operationCall.getContext().getEnvironment().shutdown();
     }
 
@@ -54,24 +58,14 @@ public class ScriptFunction extends BaseOperation<V8OperationContext> implements
         this.pipeIndex = pipeIndex;
     }
 
-    private class Emitter {
-        FunctionCall<V8OperationContext> call;
-        ScriptFunction function;
+    public void emit(V8Object out, FunctionCall<V8OperationContext> call) {
+        Object[] outVals = new Comparable[fieldDeclaration.size()];
 
-        public Emitter(ScriptFunction function, FunctionCall<V8OperationContext> call) {
-            this.call = call;
-            this.function = function;
+        for (int i = 0; i < fieldDeclaration.size(); i++) {
+            outVals[i] = out.get(fieldDeclaration.get(i));
         }
 
-        public void emit(V8Object out) {
-            Object[] outVals = new Comparable[function.fieldDeclaration.size()];
-
-            for (int i = 0; i < function.fieldDeclaration.size(); i++) {
-                outVals[i] = out.get(function.fieldDeclaration.get(i));
-            }
-
-            call.getOutputCollector().add(new TupleEntry(new Tuple(outVals)));
-        }
+        call.getOutputCollector().add(new TupleEntry(new Tuple(outVals)));
     }
 
     public void operate(FlowProcess flowProcess, FunctionCall<V8OperationContext> call) {
@@ -81,17 +75,15 @@ public class ScriptFunction extends BaseOperation<V8OperationContext> implements
         Fields fields = entry.getFields();
 
         try {
-            V8Object in = (V8Object)env.evaluateScript("{}");
+            V8Object in = env.createObject();
 
             for (int i = 0; i < fields.size(); i++) {
                 in.put(fields.get(i).toString(), entry.get(i));
             }
 
             env.invokeMethod(ctx.getV8PipeClass(), "invokePipeCallback",
-                    pipeIndex, "default", in, new Emitter(this, call));
+                    pipeIndex, "default", in, this, call);
         } catch (ScriptException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
             e.printStackTrace();
         } catch (NoSuchMethodException e) {
             e.printStackTrace();

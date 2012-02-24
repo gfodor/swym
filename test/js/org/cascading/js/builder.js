@@ -22,11 +22,11 @@
             $.source('input', $.tap("test.txt", new schemes.TextLine()));
             $.assembly('input', function() {
               return $.generator(["line"], ["word"], function(tuple, emitter) {
-                var words, _i, _len, _ref, _results;
-                _ref = tuple.line.match(/\S+/);
+                var word, _i, _len, _ref, _results;
+                _ref = tuple.line.match(/\S+/g);
                 _results = [];
                 for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                  words = _ref[_i];
+                  word = _ref[_i];
                   _results.push(emitter({
                     word: word
                   }));

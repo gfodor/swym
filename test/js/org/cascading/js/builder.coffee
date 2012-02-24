@@ -11,7 +11,7 @@ require paths, (builder, schemes) ->
 
           $.assembly 'input', ->
             $.generator ["line"], ["word"], (tuple, emitter) ->
-              emitter({ word: word }) for words in tuple.line.match(/\S+/)
+              emitter({ word: word }) for word in tuple.line.match(/\S+/g)
 
             #$.insert capitalized: (tuple) ->
             #  tuple.word.toUpperCase()
