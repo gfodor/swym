@@ -20,8 +20,6 @@ public class ScriptFunction extends BaseOperation<V8OperationContext> implements
 
     @Override
     public void prepare( FlowProcess flowProcess, OperationCall<V8OperationContext> operationCall ) {
-        System.err.println("NEW PIPE");
-
         Environment env = new Environment();
         try {
             env.start(environmentArgs);
@@ -47,8 +45,6 @@ public class ScriptFunction extends BaseOperation<V8OperationContext> implements
     }
 
     public void cleanup(cascading.flow.FlowProcess flowProcess, cascading.operation.OperationCall<V8OperationContext> operationCall) {
-        System.err.println("CLEAN PIPE");
-
         operationCall.getContext().getEnvironment().shutdown();
     }
 

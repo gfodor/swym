@@ -21,6 +21,10 @@ public class Factory {
     private Flow lastFlow;
 
     private Fields asFields(V8Array v8Fields) {
+        if (v8Fields.size() == 0) {
+            return Fields.ALL;
+        }
+
         return new Fields(v8Fields.toArray(new String[v8Fields.size()]));
     }
 

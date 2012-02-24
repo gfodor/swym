@@ -13,8 +13,8 @@ require paths, (builder, schemes) ->
             $.generator ["line"], ["word"], (tuple, emitter) ->
               emitter({ word: word }) for word in tuple.line.match(/\S+/g)
 
-            #$.insert capitalized: (tuple) ->
-            #  tuple.word.toUpperCase()
+            $.insert capitalized: (tuple) ->
+              tuple.word.toUpperCase()
 
             #$.group_by 'capitalized', ->
 

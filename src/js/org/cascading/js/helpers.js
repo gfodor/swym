@@ -58,21 +58,27 @@
       },
       EachPipes: {
         insert: function(params) {
-          var name, value, _results;
+          var name, value, _results,
+            _this = this;
           _results = [];
           for (name in params) {
             value = params[name];
             _results.push((function() {
-              var n, v;
-              n = name;
-              v = value;
+              var n, v, _ref;
+              _ref = [name, value], n = _ref[0], v = _ref[1];
               if (typeof v === 'function') {
-                return this.map(function(tuple, emitter) {
-                  return tuple[n] = v(tuple);
+                return _this.generator([], [name], function(tuple, emitter) {
+                  var out;
+                  out = {};
+                  out[n] = v(tuple);
+                  return emitter(out);
                 });
               } else {
-                return this.map(function(tuple, emitter) {
-                  return tuple[n] = v;
+                return _this.generator([], [name], function(tuple, emitter) {
+                  var out;
+                  out = {};
+                  out[n] = v;
+                  return emitter(out);
                 });
               }
             })());

@@ -57,16 +57,19 @@ define ["./components", "./schemes"], (components, schemes) ->
   EachPipes:
     insert: (params) ->
       for name, value of params
-        (->
-          n = name
-          v = value
+        (=>
+          [n, v] = [name, value]
 
           if typeof(v) == 'function'
-            this.map (tuple, emitter) ->
-              tuple[n] = v(tuple)
+            this.generator [], [name], (tuple, emitter) ->
+              out = {}
+              out[n] = v(tuple)
+              emitter(out)
           else
-            this.map (tuple, emitter) ->
-              tuple[n] = v)()
+            this.generator [], [name], (tuple, emitter) ->
+              out = {}
+              out[n] = v
+              emitter(out))()
 
     generator: (argument_selector, result_fields, callback) ->
       throw new Error("Cannot define map pipe inside of group by") if this.is_in_group_by()

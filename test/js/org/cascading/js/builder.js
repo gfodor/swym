@@ -21,7 +21,7 @@
           return $.flow('word_counter', function() {
             $.source('input', $.tap("test.txt", new schemes.TextLine()));
             $.assembly('input', function() {
-              return $.generator(["line"], ["word"], function(tuple, emitter) {
+              $.generator(["line"], ["word"], function(tuple, emitter) {
                 var word, _i, _len, _ref, _results;
                 _ref = tuple.line.match(/\S+/g);
                 _results = [];
@@ -32,6 +32,11 @@
                   }));
                 }
                 return _results;
+              });
+              return $.insert({
+                capitalized: function(tuple) {
+                  return tuple.word.toUpperCase();
+                }
               });
             });
             return $.sink('input', $.tap("output", new schemes.TextLine()));
