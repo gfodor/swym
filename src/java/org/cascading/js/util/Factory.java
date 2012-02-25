@@ -45,7 +45,7 @@ public class Factory {
     }
 
     public Pipe GeneratorEach(V8Array argumentSelector, V8Array resultFields, Environment.EnvironmentArgs args, Integer pipeIndex, Pipe parent) {
-        return new Each(parent, asFields(argumentSelector), new ScriptFunction(asFields(resultFields), args, pipeIndex), Fields.ALL);
+        return new Each(parent, asFields(argumentSelector), new ScriptFunction(asFields(resultFields), args, pipeIndex), asFields(resultFields));
     }
 
     public Flow Flow(String name, V8Object v8Sources, V8Object v8Sinks, V8Array v8TailPipes) {

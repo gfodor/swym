@@ -7,16 +7,14 @@ require paths, (builder, schemes) ->
     it "should work", ->
       c = builder.cascade ($) ->
         $.flow 'word_counter', ->
-          $.source 'input', $.tap("test.txt", new schemes.TextLine())
+          $.source 'input', $.tap("listings.txt", new schemes.TextLine())
 
           $.assembly 'input', ->
             $.generator ["line"], ["word"], (tuple, emitter) ->
-              emitter({ word: word }) for word in tuple.line.match(/\S+/g)
+              words = tuple.line.match(/\S+/g)
 
-            $.insert capitalized: (tuple) ->
-              tuple.word.toUpperCase()
-
-            #$.group_by 'capitalized', ->
+              for word in words
+                emitter(word)
 
           $.sink 'input', $.tap("output", new schemes.TextLine())
 

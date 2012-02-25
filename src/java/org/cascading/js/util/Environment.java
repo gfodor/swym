@@ -1,8 +1,9 @@
 package org.cascading.js.util;
 
 import lu.flier.script.V8Object;
-import lu.flier.tools.shell.Shell;
 import org.apache.commons.io.FileUtils;
+import sun.org.mozilla.javascript.internal.Context;
+import sun.org.mozilla.javascript.internal.Scriptable;
 
 import javax.script.ScriptException;
 import java.io.File;
@@ -28,56 +29,56 @@ public class Environment {
         }
     }
 
-    private Shell shell;
     private Factory factory;
+    private Context context;
+    private Scriptable scope;
 
     public Factory getFactory() {
         return factory;
     }
 
     public void start(EnvironmentArgs args) throws IOException, ScriptException {
-        shell = new Shell();
+        context = Context.enter();
+        scope = context.initStandardObjects();
         factory = new Factory();
+        scope.put("_dummy", scope, factory);
 
-        shell.evaluateScript("var _dummy");
-        shell.injectObject("_dummy", factory);
-        shell.evaluateScript("var Cascading = {}; Cascading.Factory = _dummy;");
-        shell.injectObject("_dummy", args);
-        shell.evaluateScript("Cascading.EnvironmentArgs = _dummy;");
-        shell.evaluateScript("delete _dummy;");
+        context.evaluateString(scope, "var Cascading = {}; Cascading.Factory = _dummy;", "", 0, null);
+        scope.put("_dummy", scope, args);
 
         if (args.loadTestFramework) {
-            shell.evaluateScript(FileUtils.readFileToString(new File("lib/js/jasmine.js")));
-        } 
+            context.evaluateString(scope, "require('lib/js/jasmine')", "", 0, null);
+        }
 
-        shell.evaluateScript(FileUtils.readFileToString(new File("lib/js/r.js")), new String[] { args.script });
+        context.evaluateString(scope, FileUtils.readFileToString(new File("lib/js/r.js")), "", 0, null);
 
         if (args.loadTestFramework) {
-            shell.evaluateScript(FileUtils.readFileToString(new File("test/js/execute.js")));
+            //context.evaluateString(scope, FileUtils.readFileToString(new File("test/js/execute.js")), "", 0, null);
         }
     }
 
     public void shutdown() {
-        shell.shutdown();
+        context = null;
+        scope = null;
     }
 
     public Object evaluateScript(String script) throws ScriptException, IOException {
-        return shell.evaluateScript(script);
+        return null ;//shell.evaluateScript(script);
     }
 
     public void invokeMethod(Object target, String name, Object... objects) throws ScriptException, NoSuchMethodException {
-        shell.invokeMethod(target, name, objects);
+        //shell.invokeMethod(target, name, objects);
     }
 
     public void invokeFunction(String name, Object... objects) throws ScriptException, NoSuchMethodException {
-        shell.invokeFunction(name, objects);
+        //shell.invokeFunction(name, objects);
     }
 
     public Object extractObject(String name) {
-        return shell.extractObject(name);
+        return null; //shell.extractObject(name);
     }
 
     public V8Object createObject() {
-        return shell.createObject();
+        return null; //shell.createObject();
     }
 }
