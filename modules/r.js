@@ -366,6 +366,11 @@ var requirejs, require, define;
                         //this normalization.
                         baseName = baseName.split("/");
                         baseName = baseName.slice(0, baseName.length - 1);
+
+                        // gfodor - Leading dot is now redundant
+                        if (name.indexOf("./") === 0) {
+                          name = name.substring(2);
+                        }
                     }
 
                     name = baseName.concat(name.split("/"));

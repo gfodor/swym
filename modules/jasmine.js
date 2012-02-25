@@ -63,7 +63,14 @@ jasmine.bindOriginal_ = function(base, name) {
     };
   } else {
     // IE support
-    return jasmine.getGlobal()[name];
+    var old = jasmine.getGlobal()[name];
+
+    // gfodor
+    if (!old) {
+      old = function(f) { if (typeof(f) == "function") f(); }
+    }
+
+    return old;
   }
 };
 

@@ -1,3 +1,5 @@
+env = require_commonjs("cascading/env") if require_commonjs?
+
 define ->
   console.log("creating components")
 
@@ -68,7 +70,7 @@ define ->
         for name, assembly of @assemblies
           jtail_pipes.unshift(assembly.to_java())
 
-        Cascading.Factory.Flow(@name, jsources, jsinks, jtail_pipes)
+        env.getFactory().Flow(@name, jsources, jsinks, jtail_pipes)
 
   Tap:
     class
@@ -78,7 +80,7 @@ define ->
 
       to_java: ->
         jscheme = @scheme.to_java()
-        Cascading.Factory.Hfs(jscheme, @path)
+        env.getFactory().Hfs(jscheme, @path)
 
   Pipe:
     class Pipe
@@ -114,9 +116,9 @@ define ->
         parent_jpipe = @parent_pipe?.to_java()
 
         if parent_jpipe?
-          Cascading.Factory.Pipe(@name, parent_jpipe)
+          env.getFactory().Pipe(@name, parent_jpipe)
         else
-          Cascading.Factory.Pipe(@name)
+          env.getFactory().Pipe(@name)
 
   Each:
     class Each extends Pipe
@@ -145,7 +147,7 @@ define ->
       to_java: (parent_pipe) ->
         if @type == EachTypes.GENERATOR
           parent_jpipe = @parent_pipe?.to_java()
-          Cascading.Factory.GeneratorEach(@argument_selector, @result_fields, Cascading.EnvironmentArgs, @pipe_index, parent_jpipe)
+          env.getFactory().GeneratorEach(@argument_selector, @result_fields, env.getArgs(), @pipe_index, parent_jpipe)
 
   Every:
     class Every extends Pipe

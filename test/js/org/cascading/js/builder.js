@@ -23,13 +23,13 @@
     return describe("job builder", function() {
       return it("should work", function() {
         var c;
-        return c = builder.cascade(function($) {
+        c = builder.cascade(function($) {
           return $.flow('word_counter', function() {
-            $.source('input', $.tap("listings.txt", new schemes.TextLine()));
+            $.source('input', $.tap("listingssmall.txt", new schemes.TextLine()));
             $.assembly('input', function() {
               return $.generator(["line"], ["word"], function(tuple, emitter) {
                 var word, words, _i, _len, _results;
-                words = tuple.line.match(/\S+/g);
+                words = tuple.get("line").match(/\S+/g);
                 _results = [];
                 for (_i = 0, _len = words.length; _i < _len; _i++) {
                   word = words[_i];
@@ -41,6 +41,7 @@
             return $.sink('input', $.tap("output", new schemes.TextLine()));
           });
         });
+        return c.to_java();
       });
     });
   });

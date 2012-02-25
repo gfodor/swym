@@ -1,3 +1,5 @@
+env = require_commonjs("cascading/env") if require_commonjs?
+
 define ->
   class Scheme
     scheme_type: ->
@@ -13,4 +15,4 @@ define ->
         @fields ?= ["line"]
 
       to_java: ->
-        Cascading.Factory.TextLine(@fields)
+        env.getFactory().TextLine(@fields)

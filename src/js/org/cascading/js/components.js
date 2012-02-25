@@ -1,6 +1,11 @@
 (function() {
-  var __hasProp = Object.prototype.hasOwnProperty,
+  var env,
+    __hasProp = Object.prototype.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor; child.__super__ = parent.prototype; return child; };
+
+  if (typeof require_commonjs !== "undefined" && require_commonjs !== null) {
+    env = require_commonjs("cascading/env");
+  }
 
   define(function() {
     var CoGroup, Each, EachTypes, Every, GroupBy, Pipe;
@@ -96,7 +101,7 @@
             assembly = _ref3[name];
             jtail_pipes.unshift(assembly.to_java());
           }
-          return Cascading.Factory.Flow(this.name, jsources, jsinks, jtail_pipes);
+          return env.getFactory().Flow(this.name, jsources, jsinks, jtail_pipes);
         };
 
         return _Class;
@@ -114,7 +119,7 @@
         _Class.prototype.to_java = function() {
           var jscheme;
           jscheme = this.scheme.to_java();
-          return Cascading.Factory.Hfs(jscheme, this.path);
+          return env.getFactory().Hfs(jscheme, this.path);
         };
 
         return _Class;
@@ -162,9 +167,9 @@
           var parent_jpipe, _ref;
           parent_jpipe = (_ref = this.parent_pipe) != null ? _ref.to_java() : void 0;
           if (parent_jpipe != null) {
-            return Cascading.Factory.Pipe(this.name, parent_jpipe);
+            return env.getFactory().Pipe(this.name, parent_jpipe);
           } else {
-            return Cascading.Factory.Pipe(this.name);
+            return env.getFactory().Pipe(this.name);
           }
         };
 
@@ -205,7 +210,7 @@
           var parent_jpipe, _ref;
           if (this.type === EachTypes.GENERATOR) {
             parent_jpipe = (_ref = this.parent_pipe) != null ? _ref.to_java() : void 0;
-            return Cascading.Factory.GeneratorEach(this.argument_selector, this.result_fields, Cascading.EnvironmentArgs, this.pipe_index, parent_jpipe);
+            return env.getFactory().GeneratorEach(this.argument_selector, this.result_fields, env.getArgs(), this.pipe_index, parent_jpipe);
           }
         };
 

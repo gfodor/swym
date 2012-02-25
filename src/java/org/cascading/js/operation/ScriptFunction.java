@@ -8,13 +8,14 @@ import cascading.operation.OperationCall;
 import cascading.tuple.Fields;
 import cascading.tuple.Tuple;
 import cascading.tuple.TupleEntry;
-import lu.flier.script.V8Array;
-import lu.flier.script.V8Object;
 import org.cascading.js.util.Environment;
+import org.mozilla.javascript.NativeFunction;
 
 import javax.script.ScriptException;
+import java.io.IOException;
+import java.util.concurrent.ExecutionException;
 
-public class ScriptFunction extends BaseOperation<V8OperationContext> implements Function<V8OperationContext> {
+public class ScriptFunction extends BaseOperation<ScriptOperationContext> implements Function<ScriptOperationContext> {
     private Environment.EnvironmentArgs environmentArgs;
     private int pipeIndex;
     private long convertTime = 0;
@@ -23,42 +24,48 @@ public class ScriptFunction extends BaseOperation<V8OperationContext> implements
     private long createCount = 0;
 
     @Override
-    public void prepare( FlowProcess flowProcess, OperationCall<V8OperationContext> operationCall ) {
+    public void prepare( FlowProcess flowProcess, OperationCall<ScriptOperationContext> operationCall ) {
         Environment env = new Environment();
         try {
             env.start(environmentArgs);
 
             String pathPrefix = "";
 
-            if (environmentArgs.isLoadTestFramework()) {
+            if (environmentArgs.isRunTests()) {
                 pathPrefix = "../../../../../";
             }
 
             env.evaluateScript("var __dummy;");
             env.evaluateScript("require([\"" + pathPrefix + "src/js/org/cascading/js/components\"], function(components) {" +
                                "  __dummy = components.Pipe; });");
-            V8Object v8PipeClass = (V8Object)env.extractObject("__dummy");
+            NativeFunction pipeClass = (NativeFunction)env.extractObject("__dummy");
             env.evaluateScript("delete __dummy");
 
-            operationCall.setContext(new V8OperationContext(env, v8PipeClass));
+            operationCall.setContext(new ScriptOperationContext(env, pipeClass));
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    public void cleanup(cascading.flow.FlowProcess flowProcess, cascading.operation.OperationCall<V8OperationContext> call) {
-        V8OperationContext ctx = call.getContext();
+    public void cleanup(cascading.flow.FlowProcess flowProcess, cascading.operation.OperationCall<ScriptOperationContext> call) {
+        ScriptOperationContext ctx = call.getContext();
         Environment env = ctx.getEnvironment();
         System.err.println("Convert time : " + convertTime);
         System.err.println("Invoke time : " + invokeTime);
         System.err.println("Emit time : " + emitTime);
         System.err.println("Create count: " + createCount);
         try {
-            env.invokeMethod(ctx.getV8PipeClass(), "invokePipeCallback",
+            env.invokeMethod(ctx.getPipeClass(), "invokePipeCallback",
                     pipeIndex, "cleanup", this, call);
         } catch (ScriptException e) {
             e.printStackTrace();
         } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
             e.printStackTrace();
         }
         call.getContext().getEnvironment().shutdown();
@@ -70,9 +77,9 @@ public class ScriptFunction extends BaseOperation<V8OperationContext> implements
         this.pipeIndex = pipeIndex;
     }
 
-    public void flush(V8Array buffer, FunctionCall<V8OperationContext> call) {
-        for (int i = 0; i < buffer.size(); i++) {
-            String out = (String)buffer.get(i);
+    public void flush(Object[] buffer, FunctionCall<ScriptOperationContext> call) {
+        for (int i = 0; i < buffer.length; i++) {
+            String out = buffer[i].toString();
 
             if (out != null) {
                 Object[] outVals = new Comparable[fieldDeclaration.size()];
@@ -90,30 +97,29 @@ public class ScriptFunction extends BaseOperation<V8OperationContext> implements
         }
     }
 
-    public void operate(FlowProcess flowProcess, FunctionCall<V8OperationContext> call) {
+    public void operate(FlowProcess flowProcess, FunctionCall<ScriptOperationContext> call) {
         TupleEntry entry = call.getArguments();
-        V8OperationContext ctx = call.getContext();
+        ScriptOperationContext ctx = call.getContext();
         Environment env = ctx.getEnvironment();
-        Fields fields = entry.getFields();
 
         try {
             long t0 = System.currentTimeMillis();
-            V8Object in = env.createObject();
-
-            for (int i = 0; i < fields.size(); i++) {
-                in.put(fields.get(i).toString(), entry.get(i));
-            }
-
             convertTime += System.currentTimeMillis() - t0;
             t0 = System.currentTimeMillis();
 
-            env.invokeMethod(ctx.getV8PipeClass(), "invokePipeCallback",
-                    pipeIndex, "default", in, this, call);
+            env.invokeMethod(ctx.getPipeClass(), "invokePipeCallback",
+                    pipeIndex, "default", entry, this, call);
 
             invokeTime += System.currentTimeMillis() - t0;
         } catch (ScriptException e) {
             e.printStackTrace();
         } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }

@@ -1,8 +1,6 @@
 package org.cascading.js.util;
 
-import lu.flier.script.V8Object;
 import org.mozilla.javascript.Context;
-import org.mozilla.javascript.ContextFactory;
 import org.mozilla.javascript.Scriptable;
 import org.ringojs.engine.RhinoEngine;
 import org.ringojs.engine.RingoConfiguration;
@@ -11,95 +9,87 @@ import org.ringojs.repository.FileRepository;
 import javax.script.ScriptException;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.concurrent.ExecutionException;
 
 public class Environment {
     public static class EnvironmentArgs implements Serializable {
         private String script;
-        private boolean loadTestFramework;
+        private boolean runTests;
 
         public EnvironmentArgs(String script, boolean loadTestFramework) {
             this.script = script;
-            this.loadTestFramework = loadTestFramework;
+            this.runTests = loadTestFramework;
         }
 
         public String getScript() {
             return script;
         }
 
-        public boolean isLoadTestFramework() {
-            return loadTestFramework;
+        public boolean isRunTests() {
+            return runTests;
         }
     }
-
-    private Factory factory;
-    private Context context;
-    private Scriptable scope;
 
     public Factory getFactory() {
         return factory;
     }
 
-    public void start(EnvironmentArgs args) throws Exception {
+    private Factory factory;
+    private Context context;
+    private Scriptable scope;
+    private RhinoEngine engine;
+
+    public void start(EnvironmentArgs args) throws IOException {
         RingoConfiguration config = new RingoConfiguration(new FileRepository("."),
                 new String[0], new String[] { "modules" });
 
         boolean hasPolicy = System.getProperty("java.security.policy") != null;
-        boolean productionMode = false;
+        boolean productionMode = true;
         config.setPolicyEnabled(hasPolicy);
         config.setOptLevel(productionMode ? 9 : -1);
         config.setDebug(false);
-        config.setVerbose(true);
+        config.setVerbose(!productionMode);
         config.setParentProtoProperties(false);
         config.setStrictVars(!productionMode);
         config.setReloading(!productionMode);
         config.setMainScript(args.getScript());
         config.setArguments(new String[] { args.getScript() });
-        RhinoEngine engine = new RhinoEngine(config, null);
+        try {
+            engine = new RhinoEngine(config, null);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         context = engine.getContextFactory().enterContext(null);
+        factory = new Factory();
 
-        Scriptable scope = null;
+        Scriptable envScope = engine.loadModule(context, "cascading/env", null);
+        envScope.put("factory", envScope, Context.javaToJS(factory, envScope));
+        envScope.put("args", envScope, Context.javaToJS(args, envScope));
 
-        engine.loadModule(context, "r", scope);
+        scope = engine.loadModule(context, "r", null);
 
-        /*factory = new Factory();
-        scope.put("_dummy", scope, factory);
-
-        context.evaluateString(scope, "var Cascading = {}; Cascading.Factory = _dummy;", "", 0, null);
-        scope.put("_dummy", scope, args);*/
-
-        /*if (args.loadTestFramework) {
-            context.evaluateString(scope, "require('lib/js/jasmine')", "", 0, null);
-        }*/
-
-        //context.evaluateString(module, FileUtils.readFileToString(new File("lib/js/r.js")), "", 0, null);
-
-        /*if (args.loadTestFramework) {
-            //context.evaluateString(scope, FileUtils.readFileToString(new File("test/js/execute.js")), "", 0, null);
-        }*/
+        if (args.runTests) {
+            engine.loadModule(context, "cascading/test/run", null);
+        }
     }
 
     public void shutdown() {
         context = null;
-        scope = null;
     }
 
     public Object evaluateScript(String script) throws ScriptException, IOException {
-        return null ;//shell.evaluateScript(script);
+        return context.evaluateString(scope, script, "", 0, null);
     }
 
-    public void invokeMethod(Object target, String name, Object... objects) throws ScriptException, NoSuchMethodException {
-        //shell.invokeMethod(target, name, objects);
+    public void invokeMethod(Object target, String name, Object... objects) throws ScriptException, NoSuchMethodException, IOException, ExecutionException, InterruptedException {
+        engine.invoke(target, name, objects);
     }
 
-    public void invokeFunction(String name, Object... objects) throws ScriptException, NoSuchMethodException {
-        //shell.invokeFunction(name, objects);
+    public void invokeFunction(String name, Object... objects) throws ScriptException, NoSuchMethodException, IOException, ExecutionException, InterruptedException {
+        engine.invoke(null, name, objects);
     }
 
     public Object extractObject(String name) {
-        return null; //shell.extractObject(name);
-    }
-
-    public V8Object createObject() {
-        return null; //shell.createObject();
+        return scope.get(name, scope);
     }
 }

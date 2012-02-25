@@ -9,9 +9,8 @@ import cascading.scheme.TextLine;
 import cascading.tap.Hfs;
 import cascading.tap.Tap;
 import cascading.tuple.Fields;
-import lu.flier.script.V8Array;
-import lu.flier.script.V8Object;
 import org.cascading.js.operation.ScriptFunction;
+import org.mozilla.javascript.NativeObject;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -20,15 +19,21 @@ import java.util.Properties;
 public class Factory {
     private Flow lastFlow;
 
-    private Fields asFields(V8Array v8Fields) {
-        if (v8Fields.size() == 0) {
+    private static Fields asFields(Object[] jsFields) {
+        if (jsFields.length == 0) {
             return Fields.ALL;
         }
 
-        return new Fields(v8Fields.toArray(new String[v8Fields.size()]));
+        Comparable[] fieldNames = new Comparable[jsFields.length];
+
+        for (int i = 0; i < fieldNames.length; i++) {
+            fieldNames[i] = (Comparable)jsFields[i];
+        }
+
+        return new Fields(fieldNames);
     }
 
-    public TextLine TextLine(V8Array fields) {
+    public TextLine TextLine(Object[] fields) {
         return new TextLine(asFields(fields));
     }
 
@@ -44,40 +49,39 @@ public class Factory {
         return new Pipe(name, parent);
     }
 
-    public Pipe GeneratorEach(V8Array argumentSelector, V8Array resultFields, Environment.EnvironmentArgs args, Integer pipeIndex, Pipe parent) {
+    public Pipe GeneratorEach(Object[] argumentSelector, Object[] resultFields, Environment.EnvironmentArgs args, Integer pipeIndex, Pipe parent) {
         return new Each(parent, asFields(argumentSelector), new ScriptFunction(asFields(resultFields), args, pipeIndex), asFields(resultFields));
     }
 
-    public Flow Flow(String name, V8Object v8Sources, V8Object v8Sinks, V8Array v8TailPipes) {
+    public Flow Flow(String name, NativeObject jsSources, NativeObject jsSinks, Object[] jsTailPipes) {
         Properties properties = new Properties();
-        properties.setProperty("mapred.map.tasks", "1");
-        properties.setProperty("mapred.reduce.tasks", "1");
+        properties.put("mapred.map.tasks", "1");
+        properties.put("mapred.reduce.tasks", "1");
 
         FlowConnector flowConnector = new FlowConnector(properties);
         Map<String, Tap> sources = new HashMap<String, Tap>();
         Map<String, Tap> sinks = new HashMap<String, Tap>();
 
-        for (Map.Entry<String,Object> entry : v8Sources.entrySet()) {
-            sources.put(entry.getKey(), (Tap)entry.getValue());
+        for (Map.Entry<Object, Object> entry : jsSources.entrySet()) {
+            sources.put(entry.getKey().toString(), (Tap) entry.getValue());
         }
 
-        for (Map.Entry<String,Object> entry : v8Sinks.entrySet()) {
-            sinks.put(entry.getKey(), (Tap)entry.getValue());
+        for (Map.Entry<Object, Object> entry : jsSinks.entrySet()) {
+            sinks.put(entry.getKey().toString(), (Tap)entry.getValue());
         }
 
-        Pipe[] tailPipes = new Pipe[v8TailPipes.size()];
+        Pipe[] tailPipes = new Pipe[jsTailPipes.length];
 
-        for (int i = 0; i < v8TailPipes.size(); i++) {
-            tailPipes[i] = (Pipe)v8TailPipes.get(i);
+        for (int i = 0; i < jsTailPipes.length; i++) {
+            tailPipes[i] = (Pipe)jsTailPipes[i];
         }
 
         Flow flow = flowConnector.connect(name, sources, sinks, tailPipes);
         lastFlow = flow;
-
         return flow;
     }
 
-    public void run() throws InterruptedException {
+    public void run() {
         lastFlow.complete();
     }
 }

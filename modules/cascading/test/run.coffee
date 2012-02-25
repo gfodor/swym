@@ -1,3 +1,5 @@
+jasmine = require("jasmine").jasmine
+
 jasmineEnv = jasmine.getEnv()
 jasmineEnv.updateInterval = 1000
 

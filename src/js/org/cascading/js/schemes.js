@@ -1,6 +1,11 @@
 (function() {
-  var __hasProp = Object.prototype.hasOwnProperty,
+  var env,
+    __hasProp = Object.prototype.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor; child.__super__ = parent.prototype; return child; };
+
+  if (typeof require_commonjs !== "undefined" && require_commonjs !== null) {
+    env = require_commonjs("cascading/env");
+  }
 
   define(function() {
     var Scheme;
@@ -29,7 +34,7 @@
         }
 
         _Class.prototype.to_java = function() {
-          return Cascading.Factory.TextLine(this.fields);
+          return env.getFactory().TextLine(this.fields);
         };
 
         return _Class;
