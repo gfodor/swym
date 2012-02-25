@@ -1,5 +1,11 @@
 (function() {
-  var module, modules, paths;
+  var key, module, modules, paths, value, _ref;
+
+  _ref = require_commonjs("jasmine");
+  for (key in _ref) {
+    value = _ref[key];
+    this[key] = value;
+  }
 
   modules = ["builder", "schemes"];
 
@@ -17,7 +23,7 @@
     return describe("job builder", function() {
       return it("should work", function() {
         var c;
-        c = builder.cascade(function($) {
+        return c = builder.cascade(function($) {
           return $.flow('word_counter', function() {
             $.source('input', $.tap("listings.txt", new schemes.TextLine()));
             $.assembly('input', function() {
@@ -35,7 +41,6 @@
             return $.sink('input', $.tap("output", new schemes.TextLine()));
           });
         });
-        return c.to_java();
       });
     });
   });

@@ -1,12 +1,12 @@
 /**
- * @license r.js 1.0.6+ Copyright (c) 2010-2012, The Dojo Foundation All Rights Reserved.
+ * @license r.js 1.0.7 Copyright (c) 2010-2012, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
  */
 
 /*
  * This is a bootstrap script to allow running RequireJS in the command line
- * in either a Java/Rhino/Jav8 or Node environment. It is modified by the top-level
+ * in either a Java/Rhino or Node environment. It is modified by the top-level
  * dist.js file to inject other files to completely enable this file. It is
  * the shell of the r.js file.
  */
@@ -20,13 +20,12 @@ var requirejs, require, define;
 
     var fileName, env, fs, vm, path, exec, rhinoContext, dir, nodeRequire,
         nodeDefine, exists, reqMain, loadedOptimizedLib,
-        version = '1.0.6+',
+        version = '1.0.7',
         jsSuffixRegExp = /\.js$/,
         commandOption = '',
         useLibLoaded = {},
         //Used by jslib/rhino/args.js
         rhinoArgs = args,
-        jav8Args = args,
         readFile = typeof readFileFunc !== 'undefined' ? readFileFunc : null;
 
     function showHelp() {
@@ -46,6 +45,10 @@ var requirejs, require, define;
         //Set up execution context.
         rhinoContext = Packages.org.mozilla.javascript.ContextFactory.getGlobal().enterContext();
 
+        // gfodor
+        this.require_commonjs = require;
+        this.require = requirejs; 
+
         exec = function (string, name) {
             return rhinoContext.evaluateString(this, string, name, 0, null);
         };
@@ -63,23 +66,6 @@ var requirejs, require, define;
                 }
             };
         }
-    } else if (typeof Jav8Shell !== 'undefined') {
-        env = 'jav8';
-
-        fileName = args[0];
-
-        if (fileName && fileName.indexOf('-') === 0) {
-            commandOption = fileName.substring(1);
-            fileName = args[1];
-        }
-
-        exec = function (string, name) {
-            return Jav8Shell.evaluateString(this, string, name, 0, null);
-        };
-
-        exists = function (fileName) {
-            return Jav8Shell.fileExists(fileName);
-        };
     } else if (typeof process !== 'undefined') {
         env = 'node';
 
@@ -120,7 +106,7 @@ var requirejs, require, define;
     }
 
     /** vim: et:ts=4:sw=4:sts=4
- * @license RequireJS 1.0.6 Copyright (c) 2010-2012, The Dojo Foundation All Rights Reserved.
+ * @license RequireJS 1.0.7 Copyright (c) 2010-2012, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
  */
@@ -130,7 +116,7 @@ var requirejs, require, define;
 
 (function () {
     //Change this version number for each release.
-    var version = "1.0.6",
+    var version = "1.0.7",
         commentRegExp = /(\/\*([\s\S]*?)\*\/|([^:]|^)\/\/(.*)$)/mg,
         cjsRequireRegExp = /require\(\s*["']([^'"\s]+)["']\s*\)/g,
         currDirRegExp = /^\.\//,
@@ -380,11 +366,6 @@ var requirejs, require, define;
                         //this normalization.
                         baseName = baseName.split("/");
                         baseName = baseName.slice(0, baseName.length - 1);
-
-                        // Leading dot is now redundant
-                        if (name.indexOf("./") === 0) {
-                          name = name.substring(2);
-                        }
                     }
 
                     name = baseName.concat(name.split("/"));
@@ -956,7 +937,6 @@ var requirejs, require, define;
                         manager.depCount += 1;
                         manager.depCallbacks[i] = makeArgCallback(manager, i);
                         getManager(depArg, true).add(manager.depCallbacks[i]);
-
                     }
                 }
             }
@@ -2203,30 +2183,6 @@ var requirejs, require, define;
     };
 
 }());
-    } else if (env === 'jav8') {
-        /**
- * @license RequireJS jav8 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
- * Available via the MIT or new BSD license.
- * see: http://github.com/jrburke/requirejs for details
- */
-
-/*jslint strict: false */
-/*global require: false, java: false, load: false */
-
-(function () {
-
-    require.load = function (context, moduleName, url) {
-        //Indicate a the module is in process of loading.
-        context.scriptCount += 1;
-
-        load(url);
-
-        //Support anonymous modules.
-        context.completeLoad(moduleName);
-    };
-
-}());
-
     } else if (env === 'node') {
         this.requirejsVars = {
             require: require,
@@ -2453,31 +2409,6 @@ define('rhino/args', function () {
 
 }
 
-if(env === 'jav8') {
-/**
- * @license Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
- * Available via the MIT or new BSD license.
- * see: http://github.com/jrburke/requirejs for details
- */
-
-/*jslint strict: false */
-/*global define: false, process: false */
-
-var jsLibJav8Args = (typeof jav8Args !== 'undefined' && jav8Args) || [].concat(Array.prototype.slice.call(arguments, 0));
-
-define('jav8/args', function () {
-    var args = jsLibJav8Args;
-
-    //Ignore any command option used for rq.js
-    if (args[0] && args[0].indexOf('-' === 0)) {
-        args = args.slice(1);
-    }
-
-    return args;
-});
-
-}
-
 if(env === 'node') {
 /**
  * @license RequireJS Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
@@ -2510,22 +2441,6 @@ if(env === 'rhino') {
 /*global define: false, load: false */
 
 define('rhino/load', function () {
-    return load;
-});
-
-}
-
-if(env === 'jav8') {
-/**
- * @license RequireJS Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
- * Available via the MIT or new BSD license.
- * see: http://github.com/jrburke/requirejs for details
- */
-
-/*jslint strict: false */
-/*global define: false, load: false */
-
-define('jav8/load', function () {
     return load;
 });
 
@@ -3060,261 +2975,6 @@ define('rhino/file', function () {
 });
 
 }
-
-if(env === 'jav8') {
-/**
- * @license RequireJS Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
- * Available via the MIT or new BSD license.
- * see: http://github.com/jrburke/requirejs for details
- */
-//Helper functions to deal with file I/O.
-
-/*jslint plusplus: false, strict: false */
-/*global java: false, define: false */
-
-define('jav8/file', function () {
-    var file = {
-        backSlashRegExp: /\\/g,
-
-        exclusionRegExp: /^\./,
-
-        getLineSeparator: function () {
-            return file.lineSeparator;
-        },
-
-        lineSeparator: Jav8Shell.getProperty("line.separator"), //Java String
-
-        exists: function (fileName) {
-            return (new Jav8Shell.getFile(fileName)).exists();
-        },
-
-        parent: function (fileName) {
-            return file.absPath((Jav8Shell.getFile(fileName)).getParentFile());
-        },
-
-        normalize: function (fileName) {
-            return file.absPath(fileName);
-        },
-
-        isFile: function (path) {
-            return (new Jav8Shell.getFile(path)).isFile();
-        },
-
-        isDirectory: function (path) {
-            return (new Jav8Shell.getFile(path)).isDirectory();
-        },
-
-        /**
-         * Gets the absolute file path as a string, normalized
-         * to using front slashes for path separators.
-         * @param {java.io.File||String} file
-         */
-        absPath: function (fileObj) {
-            if (typeof fileObj === "string") {
-                fileObj = new Jav8Shell.getFile(fileObj);
-            }
-            return (fileObj.getAbsolutePath() + "").replace(file.backSlashRegExp, "/");
-        },
-
-        getFilteredFileList: function (/*String*/startDir, /*RegExp*/regExpFilters, /*boolean?*/makeUnixPaths, /*boolean?*/startDirIsJavaObject) {
-            //summary: Recurses startDir and finds matches to the files that match regExpFilters.include
-            //and do not match regExpFilters.exclude. Or just one regexp can be passed in for regExpFilters,
-            //and it will be treated as the "include" case.
-            //Ignores files/directories that start with a period (.) unless exclusionRegExp
-            //is set to another value.
-            var files = [], topDir, regExpInclude, regExpExclude, dirFileArray,
-                i, fileObj, filePath, ok, dirFiles;
-
-            topDir = startDir;
-            if (!startDirIsJavaObject) {
-                topDir = new Jav8Shell.getFile(startDir);
-            }
-
-            regExpInclude = regExpFilters.include || regExpFilters;
-            regExpExclude = regExpFilters.exclude || null;
-
-            if (topDir.exists()) {
-                dirFileArray = topDir.listFiles();
-                for (i = 0; i < dirFileArray.length; i++) {
-                    fileObj = dirFileArray[i];
-                    if (fileObj.isFile()) {
-                        filePath = fileObj.getPath();
-                        if (makeUnixPaths) {
-                            //Make sure we have a JS string.
-                            filePath = String(filePath);
-                            if (filePath.indexOf("/") === -1) {
-                                filePath = filePath.replace(/\\/g, "/");
-                            }
-                        }
-
-                        ok = true;
-                        if (regExpInclude) {
-                            ok = filePath.match(regExpInclude);
-                        }
-                        if (ok && regExpExclude) {
-                            ok = !filePath.match(regExpExclude);
-                        }
-
-                        if (ok && (!file.exclusionRegExp ||
-                            !file.exclusionRegExp.test(fileObj.getName()))) {
-                            files.push(filePath);
-                        }
-                    } else if (fileObj.isDirectory() &&
-                              (!file.exclusionRegExp || !file.exclusionRegExp.test(fileObj.getName()))) {
-                        dirFiles = this.getFilteredFileList(fileObj, regExpFilters, makeUnixPaths, true);
-                        files.push.apply(files, dirFiles);
-                    }
-                }
-            }
-
-            return files; //Array
-        },
-
-        copyDir: function (/*String*/srcDir, /*String*/destDir, /*RegExp?*/regExpFilter, /*boolean?*/onlyCopyNew) {
-            //summary: copies files from srcDir to destDir using the regExpFilter to determine if the
-            //file should be copied. Returns a list file name strings of the destinations that were copied.
-            regExpFilter = regExpFilter || /\w/;
-
-            var fileNames = file.getFilteredFileList(srcDir, regExpFilter, true),
-            copiedFiles = [], i, srcFileName, destFileName;
-
-            for (i = 0; i < fileNames.length; i++) {
-                srcFileName = fileNames[i];
-                destFileName = srcFileName.replace(srcDir, destDir);
-
-                if (file.copyFile(srcFileName, destFileName, onlyCopyNew)) {
-                    copiedFiles.push(destFileName);
-                }
-            }
-
-            return copiedFiles.length ? copiedFiles : null; //Array or null
-        },
-
-        copyFile: function (/*String*/srcFileName, /*String*/destFileName, /*boolean?*/onlyCopyNew) {
-            //summary: copies srcFileName to destFileName. If onlyCopyNew is set, it only copies the file if
-            //srcFileName is newer than destFileName. Returns a boolean indicating if the copy occurred.
-            var destFile = Jav8Shell.getFile(destFileName), srcFile, parentDir,
-            srcChannel, destChannel;
-
-            //logger.trace("Src filename: " + srcFileName);
-            //logger.trace("Dest filename: " + destFileName);
-
-            //If onlyCopyNew is true, then compare dates and only copy if the src is newer
-            //than dest.
-            if (onlyCopyNew) {
-                srcFile = new Jav8Shell.getFile(srcFileName);
-                if (destFile.exists() && destFile.lastModified() >= srcFile.lastModified()) {
-                    return false; //Boolean
-                }
-            }
-
-            //Make sure destination dir exists.
-            parentDir = destFile.getParentFile();
-            if (!parentDir.exists()) {
-                if (!parentDir.mkdirs()) {
-                    throw "Could not create directory: " + parentDir.getAbsolutePath();
-                }
-            }
-
-            //Java's version of copy file.
-            srcChannel = Jav8Shell.getFileInputStream(srcFileName).getChannel();
-            destChannel = Jav8Shell.getFileOutputStream(destFileName).getChannel();
-            destChannel.transferFrom(srcChannel, 0, srcChannel.size());
-            srcChannel.close();
-            destChannel.close();
-
-            return true; //Boolean
-        },
-
-        /**
-         * Renames a file. May fail if "to" already exists or is on another drive.
-         */
-        renameFile: function (from, to) {
-            return (Jav8Shell.getFile(from)).renameTo((Jav8Shell.getFile(to)));
-        },
-
-        readFile: function (/*String*/path, /*String?*/encoding) {
-            //A file read function that can deal with BOMs
-            encoding = encoding || "utf-8";
-            var fileObj = Jav8Shell.getFile(path),
-                    input = Jav8Shell.getBufferedReader(fileObj, encoding),
-                    stringBuffer, line;
-            try {
-                stringBuffer = Jav8Shell.getStringBuffer();
-                line = input.readLine();
-
-                // Byte Order Mark (BOM) - The Unicode Standard, version 3.0, page 324
-                // http://www.unicode.org/faq/utf_bom.html
-
-                // Note that when we use utf-8, the BOM should appear as "EF BB BF", but it doesn't due to this bug in the JDK:
-                // http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=4508058
-                if (line && line.length() && line.charAt(0) === 0xfeff) {
-                    // Eat the BOM, since we've already found the encoding on this file,
-                    // and we plan to concatenating this buffer with others; the BOM should
-                    // only appear at the top of a file.
-                    line = line.substring(1);
-                }
-                while (line !== null) {
-                    stringBuffer.append(line);
-                    stringBuffer.append(file.lineSeparator);
-                    line = input.readLine();
-                }
-                //Make sure we return a JavaScript string and not a Java string.
-                return String(stringBuffer.toString()); //String
-            } finally {
-                input.close();
-            }
-        },
-
-        saveUtf8File: function (/*String*/fileName, /*String*/fileContents) {
-            //summary: saves a file using UTF-8 encoding.
-            file.saveFile(fileName, fileContents, "utf-8");
-        },
-
-        saveFile: function (/*String*/fileName, /*String*/fileContents, /*String?*/encoding) {
-            //summary: saves a file.
-            var outFile = Jav8Shell.getFile(fileName), outWriter, parentDir, os;
-
-            parentDir = outFile.getAbsoluteFile().getParentFile();
-            if (!parentDir.exists()) {
-                if (!parentDir.mkdirs()) {
-                    throw "Could not create directory: " + parentDir.getAbsolutePath();
-                }
-            }
-
-            if (encoding) {
-                outWriter = Jav8Shell.getOutputStreamWriter(outFile, encoding);
-            } else {
-                outWriter = Jav8Shell.getOutputStreamWriter(outFile);
-            }
-
-            os = Jav8Shell.getBufferedWriter(outWriter);
-            try {
-                os.write(fileContents);
-            } finally {
-                os.close();
-            }
-        },
-
-        deleteFile: function (/*String*/fileName) {
-            //summary: deletes a file or directory if it exists.
-            var fileObj = Jav8Shell.getFile(fileName), files, i;
-            if (fileObj.exists()) {
-                if (fileObj.isDirectory()) {
-                    files = fileObj.listFiles();
-                    for (i = 0; i < files.length; i++) {
-                        this.deleteFile(files[i]);
-                    }
-                }
-                fileObj["delete"]();
-            }
-        }
-    };
-
-    return file;
-});
-
-}
 /**
  * @license Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
@@ -3423,22 +3083,6 @@ if(env === 'rhino') {
 /*global define: false, print: false */
 
 define('rhino/print', function () {
-    return print;
-});
-
-}
-
-if(env === 'jav8') {
-/**
- * @license RequireJS Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
- * Available via the MIT or new BSD license.
- * see: http://github.com/jrburke/requirejs for details
- */
-
-/*jslint strict: false */
-/*global define: false, print: false */
-
-define('jav8/print', function () {
     return print;
 });
 
@@ -8161,22 +7805,6 @@ define('rhino/optimize', ['logger'], function (logger) {
     return optimize;
 });
 }
-
-if(env === 'jav8') {
-/**
- * @license Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
- * Available via the MIT or new BSD license.
- * see: http://github.com/jrburke/requirejs for details
- */
-
-/*jslint strict: false, plusplus: false */
-/*global define: false, java: false, Packages: false */
-
-define('jav8/optimize', ['logger'], function (logger) {
-    throw new Error("Not supported");
-});
-
-}
 /**
  * @license Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
@@ -9656,7 +9284,15 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
             throw new Error("ERROR: 'baseUrl' option missing.");
         }
         if (!config.out && !config.dir) {
-            throw new Error('Missing either an "out" or "dir" config value.');
+            throw new Error('Missing either an "out" or "dir" config value. ' +
+                            'If using "appDir" for a full project optimization, ' +
+                            'use "dir". If you want to optimize to one file, ' +
+                            'use "out".');
+        }
+        if (config.appDir && config.out) {
+            throw new Error('"appDir" is not compatible with "out". Use "dir" ' +
+                            'instead. appDir is used to copy whole projects, ' +
+                            'where "out" is used to just optimize to one file.');
         }
         if (config.out && config.dir) {
             throw new Error('The "out" and "dir" options are incompatible.' +
@@ -9665,7 +9301,7 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
                             ' or baseUrl directories optimized.');
         }
 
-        if (config.name && !config.modules) {
+        if ((config.name || config.include) && !config.modules) {
             //Just need to build one file, but may be part of a whole appDir/
             //baseUrl copy, but specified on the command line, so cannot do
             //the modules array setup. So create a modules section in that
@@ -9978,7 +9614,7 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
         //define(\n//begin v1.x content
         //for a comment.
         return new RegExp('(^|[^\\.])(' + (namespace || '').replace(/\./g, '\\.') +
-                          'define|define)\\s*\\(\\s*(\\/\\/[^\\n\\r]*[\\r\\n])?(\\[|function|[\\w\\d_\\$]+\\s*\\)|\\{|["\']([^"\']+)["\'])(\\s*,\\s*f)?');
+                          'define|define)\\s*\\(\\s*(\\/\\/[^\\n\\r]*[\\r\\n])?(\\[|function|[\\w\\d_\\-\\$]+\\s*\\)|\\{|["\']([^"\']+)["\'])(\\s*,\\s*f)?');
     };
 
     build.leadingCommaRegExp = /^\s*,/;
@@ -10043,7 +9679,7 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
             dir = dir.split('/');
             dir.pop();
             dir = dir.join('/');
-            exec("require({baseUrl: '" + dir + "'});");
+            exec("requirejs({baseUrl: '" + dir + "'});");
         }
     }
 
@@ -10186,5 +9822,5 @@ function (args,            build) {
     }
 
 }((typeof console !== 'undefined' ? console : undefined),
-  (typeof Packages !== 'undefined' ? Array.prototype.slice.call(arguments, 0) : (typeof Jav8Shell !== 'undefined' ? Jav8Shell.getArgs() : [])),
+  (typeof Packages !== 'undefined' ? Array.prototype.slice.call(arguments, 0) : []),
   (typeof readFile !== 'undefined' ? readFile : undefined)));

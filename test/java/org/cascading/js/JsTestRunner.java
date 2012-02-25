@@ -3,11 +3,8 @@ package org.cascading.js;
 import org.cascading.js.util.Environment;
 import org.junit.Test;
 
-import javax.script.ScriptException;
-import java.io.IOException;
-
 public class JsTestRunner {
-    public static void main(String[] args) throws ScriptException, IOException, InterruptedException {
+    public static void main(String[] args) throws Exception {
         for (final String script : args) {
             final Environment env = new Environment();
             env.start(new Environment.EnvironmentArgs("test/js/" + script, true));
@@ -17,10 +14,10 @@ public class JsTestRunner {
     }
 
     @Test
-    public void runTests() throws ScriptException, IOException, InterruptedException {
+    public void runTests() throws Exception {
         final Environment env = new Environment();
         env.start(new Environment.EnvironmentArgs("test/js/org/cascading/js/builder.js", true));
-        env.shutdown();
-        env.getFactory().run();
+        //env.shutdown();
+        //env.getFactory().run();
     }
 }

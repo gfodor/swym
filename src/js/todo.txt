@@ -1,0 +1,60 @@
+functions:
+  sum
+  count
+  average
+  first
+  min
+  max
+  last
+  regex parse
+  regex split
+  regex split generator
+  regex generator
+  expressions
+  insert
+  date parser
+  date formatter
+  regex filter
+  regex replace
+  field joiner
+
+parent of assembly
+  flow
+  assembly
+
+joins
+  inner
+  left
+  right
+  outer
+  mixed?
+  automatically get fields
+
+union
+every
+each
+project
+discard
+rename
+cast
+copy
+pass?
+asserts?
+
+filters
+  null
+  not_null
+  reject
+  where
+
+schemes
+  text
+  seq
+
+multi tap
+
+no more janino
+
+primary keys just used to first stuff
+scope used to determine fields for joins, union pipes
+

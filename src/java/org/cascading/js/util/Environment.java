@@ -1,12 +1,14 @@
 package org.cascading.js.util;
 
 import lu.flier.script.V8Object;
-import org.apache.commons.io.FileUtils;
-import sun.org.mozilla.javascript.internal.Context;
-import sun.org.mozilla.javascript.internal.Scriptable;
+import org.mozilla.javascript.Context;
+import org.mozilla.javascript.ContextFactory;
+import org.mozilla.javascript.Scriptable;
+import org.ringojs.engine.RhinoEngine;
+import org.ringojs.engine.RingoConfiguration;
+import org.ringojs.repository.FileRepository;
 
 import javax.script.ScriptException;
-import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
 
@@ -37,24 +39,43 @@ public class Environment {
         return factory;
     }
 
-    public void start(EnvironmentArgs args) throws IOException, ScriptException {
-        context = Context.enter();
-        scope = context.initStandardObjects();
-        factory = new Factory();
+    public void start(EnvironmentArgs args) throws Exception {
+        RingoConfiguration config = new RingoConfiguration(new FileRepository("."),
+                new String[0], new String[] { "modules" });
+
+        boolean hasPolicy = System.getProperty("java.security.policy") != null;
+        boolean productionMode = false;
+        config.setPolicyEnabled(hasPolicy);
+        config.setOptLevel(productionMode ? 9 : -1);
+        config.setDebug(false);
+        config.setVerbose(true);
+        config.setParentProtoProperties(false);
+        config.setStrictVars(!productionMode);
+        config.setReloading(!productionMode);
+        config.setMainScript(args.getScript());
+        config.setArguments(new String[] { args.getScript() });
+        RhinoEngine engine = new RhinoEngine(config, null);
+        context = engine.getContextFactory().enterContext(null);
+
+        Scriptable scope = null;
+
+        engine.loadModule(context, "r", scope);
+
+        /*factory = new Factory();
         scope.put("_dummy", scope, factory);
 
         context.evaluateString(scope, "var Cascading = {}; Cascading.Factory = _dummy;", "", 0, null);
-        scope.put("_dummy", scope, args);
+        scope.put("_dummy", scope, args);*/
 
-        if (args.loadTestFramework) {
+        /*if (args.loadTestFramework) {
             context.evaluateString(scope, "require('lib/js/jasmine')", "", 0, null);
-        }
+        }*/
 
-        context.evaluateString(scope, FileUtils.readFileToString(new File("lib/js/r.js")), "", 0, null);
+        //context.evaluateString(module, FileUtils.readFileToString(new File("lib/js/r.js")), "", 0, null);
 
-        if (args.loadTestFramework) {
+        /*if (args.loadTestFramework) {
             //context.evaluateString(scope, FileUtils.readFileToString(new File("test/js/execute.js")), "", 0, null);
-        }
+        }*/
     }
 
     public void shutdown() {

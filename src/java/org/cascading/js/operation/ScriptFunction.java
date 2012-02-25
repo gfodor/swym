@@ -13,7 +13,6 @@ import lu.flier.script.V8Object;
 import org.cascading.js.util.Environment;
 
 import javax.script.ScriptException;
-import java.io.IOException;
 
 public class ScriptFunction extends BaseOperation<V8OperationContext> implements Function<V8OperationContext> {
     private Environment.EnvironmentArgs environmentArgs;
@@ -42,9 +41,7 @@ public class ScriptFunction extends BaseOperation<V8OperationContext> implements
             env.evaluateScript("delete __dummy");
 
             operationCall.setContext(new V8OperationContext(env, v8PipeClass));
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (ScriptException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }

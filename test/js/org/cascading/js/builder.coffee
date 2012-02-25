@@ -1,3 +1,6 @@
+for key, value of require_commonjs("jasmine")
+  this[key] = value
+
 modules = ["builder", "schemes"]
 
 paths = ("../../../../../src/js/org/cascading/js/#{module}" for module in modules)
@@ -17,6 +20,6 @@ require paths, (builder, schemes) ->
                 emitter(word)
 
           $.sink 'input', $.tap("output", new schemes.TextLine())
-
-      c.to_java()
-
+#
+#      c.to_java()
+#
