@@ -127,22 +127,11 @@ define ->
       constructor: (@type, outer_callback, @argument_selector, @result_fields) ->
         super
 
-        emit_buffer = new Array(10001)
-        emit_counter = 0
-
-        flush = (flusher, call) ->
-          flusher.flush(emit_buffer, call)
-          emit_buffer = new Array(10001)
-          emit_counter = 0
-
         callback = (tuple, flusher, call) ->
           outer_callback tuple, (out) ->
-            emit_buffer[emit_counter] = out
-            emit_counter += 1
-            flush(flusher, call) if emit_buffer.length == 10000
+            flusher.flush(out, call)
 
         Pipe.registerPipeCallback(callback, @pipe_index)
-        Pipe.registerPipeCallback(flush, @pipe_index, "cleanup")
 
       to_java: (parent_pipe) ->
         if @type == EachTypes.GENERATOR

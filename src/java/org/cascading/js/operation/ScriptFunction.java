@@ -10,6 +10,7 @@ import cascading.tuple.Tuple;
 import cascading.tuple.TupleEntry;
 import org.cascading.js.util.Environment;
 import org.mozilla.javascript.NativeFunction;
+import org.mozilla.javascript.Scriptable;
 
 import javax.script.ScriptException;
 import java.io.IOException;
@@ -42,6 +43,7 @@ public class ScriptFunction extends BaseOperation<ScriptOperationContext> implem
             env.evaluateScript("delete __dummy");
 
             operationCall.setContext(new ScriptOperationContext(env, pipeClass));
+            env.declareScriptable(TempTuple.class);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -54,20 +56,6 @@ public class ScriptFunction extends BaseOperation<ScriptOperationContext> implem
         System.err.println("Invoke time : " + invokeTime);
         System.err.println("Emit time : " + emitTime);
         System.err.println("Create count: " + createCount);
-        try {
-            env.invokeMethod(ctx.getPipeClass(), "invokePipeCallback",
-                    pipeIndex, "cleanup", this, call);
-        } catch (ScriptException e) {
-            e.printStackTrace();
-        } catch (NoSuchMethodException e) {
-            e.printStackTrace();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (ExecutionException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
         call.getContext().getEnvironment().shutdown();
     }
 
@@ -77,24 +65,20 @@ public class ScriptFunction extends BaseOperation<ScriptOperationContext> implem
         this.pipeIndex = pipeIndex;
     }
 
-    public void flush(Object[] buffer, FunctionCall<ScriptOperationContext> call) {
-        for (int i = 0; i < buffer.length; i++) {
-            String out = buffer[i].toString();
+    public void flush(String out, FunctionCall<ScriptOperationContext> call) {
+        long t0 = System.currentTimeMillis();
 
-            if (out != null) {
-                Object[] outVals = new Comparable[fieldDeclaration.size()];
+        if (out != null) {
+            Object[] outVals = new Comparable[fieldDeclaration.size()];
 
-                long t0 = System.currentTimeMillis();
-
-                for (int j = 0; j < fieldDeclaration.size(); j++) {
-                    outVals[j] = out;
-                }
-
-                emitTime += System.currentTimeMillis() - t0;
-
-                call.getOutputCollector().add(new TupleEntry(new Tuple(outVals)));
+            for (int j = 0; j < fieldDeclaration.size(); j++) {
+                outVals[j] = out;
             }
+
+            call.getOutputCollector().add(new TupleEntry(new Tuple(outVals)));
         }
+
+        emitTime += System.currentTimeMillis() - t0;
     }
 
     public void operate(FlowProcess flowProcess, FunctionCall<ScriptOperationContext> call) {
@@ -104,11 +88,13 @@ public class ScriptFunction extends BaseOperation<ScriptOperationContext> implem
 
         try {
             long t0 = System.currentTimeMillis();
+            Scriptable tempTuple = env.createScriptable("TempTuple", new Object[] { });
+            ((TempTuple)tempTuple).setEntry(entry);
             convertTime += System.currentTimeMillis() - t0;
             t0 = System.currentTimeMillis();
 
             env.invokeMethod(ctx.getPipeClass(), "invokePipeCallback",
-                    pipeIndex, "default", entry, this, call);
+                    pipeIndex, "default", tempTuple, this, call);
 
             invokeTime += System.currentTimeMillis() - t0;
         } catch (ScriptException e) {

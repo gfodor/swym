@@ -2,6 +2,7 @@ package org.cascading.js.util;
 
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Scriptable;
+import org.mozilla.javascript.ScriptableObject;
 import org.ringojs.engine.RhinoEngine;
 import org.ringojs.engine.RingoConfiguration;
 import org.ringojs.repository.FileRepository;
@@ -9,6 +10,7 @@ import org.ringojs.repository.FileRepository;
 import javax.script.ScriptException;
 import java.io.IOException;
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.util.concurrent.ExecutionException;
 
 public class Environment {
@@ -37,6 +39,7 @@ public class Environment {
     private Factory factory;
     private Context context;
     private Scriptable scope;
+    private Scriptable rootScope;
     private RhinoEngine engine;
 
     public void start(EnvironmentArgs args) throws IOException {
@@ -67,10 +70,19 @@ public class Environment {
         envScope.put("args", envScope, Context.javaToJS(args, envScope));
 
         scope = engine.loadModule(context, "r", null);
+        rootScope = scope;
 
         if (args.runTests) {
-            engine.loadModule(context, "cascading/test/run", null);
+            engine.loadModule(context, "cascading/test/run", scope);
         }
+    }
+
+    public void declareScriptable(Class clazz) throws InvocationTargetException, InstantiationException, IllegalAccessException {
+        ScriptableObject.defineClass(rootScope, clazz);
+    }
+
+    public Scriptable createScriptable(String name, Object[] args) {
+        return context.newObject(rootScope, name, args);
     }
 
     public void shutdown() {

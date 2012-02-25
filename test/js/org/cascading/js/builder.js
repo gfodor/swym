@@ -25,14 +25,16 @@
         var c;
         c = builder.cascade(function($) {
           return $.flow('word_counter', function() {
-            $.source('input', $.tap("listingssmall.txt", new schemes.TextLine()));
+            $.source('input', $.tap("listings.txt", new schemes.TextLine()));
             $.assembly('input', function() {
+              var pattern;
+              pattern = /\S+/;
               return $.generator(["line"], ["word"], function(tuple, emitter) {
-                var word, words, _i, _len, _results;
-                words = tuple.get("line").match(/\S+/g);
+                var word, _i, _len, _ref2, _results;
+                _ref2 = tuple.line.split(pattern);
                 _results = [];
-                for (_i = 0, _len = words.length; _i < _len; _i++) {
-                  word = words[_i];
+                for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+                  word = _ref2[_i];
                   _results.push(emitter(word));
                 }
                 return _results;

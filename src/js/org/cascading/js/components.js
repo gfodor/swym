@@ -183,27 +183,17 @@
         Each.prototype.is_each = true;
 
         function Each(type, outer_callback, argument_selector, result_fields) {
-          var callback, emit_buffer, emit_counter, flush;
+          var callback;
           this.type = type;
           this.argument_selector = argument_selector;
           this.result_fields = result_fields;
           Each.__super__.constructor.apply(this, arguments);
-          emit_buffer = new Array(10001);
-          emit_counter = 0;
-          flush = function(flusher, call) {
-            flusher.flush(emit_buffer, call);
-            emit_buffer = new Array(10001);
-            return emit_counter = 0;
-          };
           callback = function(tuple, flusher, call) {
             return outer_callback(tuple, function(out) {
-              emit_buffer[emit_counter] = out;
-              emit_counter += 1;
-              if (emit_buffer.length === 10000) return flush(flusher, call);
+              return flusher.flush(out, call);
             });
           };
           Pipe.registerPipeCallback(callback, this.pipe_index);
-          Pipe.registerPipeCallback(flush, this.pipe_index, "cleanup");
         }
 
         Each.prototype.to_java = function(parent_pipe) {

@@ -10,13 +10,13 @@ require paths, (builder, schemes) ->
     it "should work", ->
       c = builder.cascade ($) ->
         $.flow 'word_counter', ->
-          $.source 'input', $.tap("listingssmall.txt", new schemes.TextLine())
+          $.source 'input', $.tap("listings.txt", new schemes.TextLine())
 
           $.assembly 'input', ->
-            $.generator ["line"], ["word"], (tuple, emitter) ->
-              words = tuple.get("line").match(/\S+/g)
+            pattern = /\S+/
 
-              for word in words
+            $.generator ["line"], ["word"], (tuple, emitter) ->
+              for word in tuple.line.split(pattern)
                 emitter(word)
 
           $.sink 'input', $.tap("output", new schemes.TextLine())
