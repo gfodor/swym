@@ -9,9 +9,9 @@
   <property name="src" location="${cascading.basedir}/src/java"/>
   <property name="src.test" location="${cascading.basedir}/test/java"/>
 
-  <property name="build" location="${cascading.basedir}/build/"/>
-  <property name="build.test" location="${cascading.basedir}/build/test"/>
-  <property name="build.classes" location="${build}/java"/>
+  <property name="build" location="${cascading.basedir}/build/java"/>
+  <property name="build.test" location="${cascading.basedir}/build/java/test"/>
+  <property name="build.classes" location="${build}/java/java"/>
 
   <property name="test.results" location="${build}/testresults"/>
   <property name="test.showoutput" value="yes"/>
