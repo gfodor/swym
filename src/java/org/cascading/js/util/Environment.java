@@ -1,5 +1,6 @@
 package org.cascading.js.util;
 
+import lu.flier.script.V8Array;
 import lu.flier.script.V8Object;
 import lu.flier.tools.shell.Shell;
 import org.apache.commons.io.FileUtils;
@@ -65,8 +66,8 @@ public class Environment {
         return shell.evaluateScript(script);
     }
 
-    public void invokeMethod(Object target, String name, Object... objects) throws ScriptException, NoSuchMethodException {
-        shell.invokeMethod(target, name, objects);
+    public Object invokeMethod(Object target, String name, Object... objects) throws ScriptException, NoSuchMethodException {
+        return shell.invokeMethod(target, name, objects);
     }
 
     public void invokeFunction(String name, Object... objects) throws ScriptException, NoSuchMethodException {
@@ -79,5 +80,9 @@ public class Environment {
 
     public V8Object createObject() {
         return shell.createObject();
+    }
+
+    public V8Array createArray(Object[] elements) {
+        return shell.createArray(elements);
     }
 }

@@ -45,13 +45,13 @@ public class Factory {
     }
 
     public Pipe GeneratorEach(V8Array argumentSelector, V8Array resultFields, Environment.EnvironmentArgs args, Integer pipeIndex, Pipe parent) {
-        return new Each(parent, asFields(argumentSelector), new ScriptFunction(asFields(resultFields), args, pipeIndex), Fields.ALL);
+        return new Each(parent, asFields(argumentSelector), new ScriptFunction(asFields(argumentSelector), asFields(resultFields), args, pipeIndex), Fields.RESULTS);
     }
 
     public Flow Flow(String name, V8Object v8Sources, V8Object v8Sinks, V8Array v8TailPipes) {
         Properties properties = new Properties();
-        properties.setProperty("mapred.map.tasks", "1");
-        properties.setProperty("mapred.reduce.tasks", "1");
+        //properties.setProperty("mapred.map.tasks", "1");
+        //properties.setProperty("mapred.reduce.tasks", "1");
 
         FlowConnector flowConnector = new FlowConnector(properties);
         Map<String, Tap> sources = new HashMap<String, Tap>();

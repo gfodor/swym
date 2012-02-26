@@ -91,14 +91,14 @@ define ->
       @invokePipeCallback: =>
         pipe_index = arguments[0]
         callback_type = arguments[1]
-        tuple = arguments[2]
-        emitter = arguments[3]
+        tupleBuffer = arguments[2]
+        operation = arguments[3]
         call = arguments[4]
 
         callback_type ?= "default"
         callback = this.pipeCallbacks[pipe_index][callback_type]
 
-        callback.apply(this, [tuple, emitter, call])
+        callback.apply(this, [tupleBuffer, operation, call])
 
       @getNextPipeIndex: =>
         this.current_pipe_index ?= 0
@@ -125,8 +125,36 @@ define ->
       constructor: (@type, outer_callback, @argument_selector, @result_fields) ->
         super
 
-        @callback = (tuple, emitter, call) ->
-          outer_callback(tuple, (t) -> emitter.emit(t, call))
+        buf = new Array(8 * 1024 + 128)
+        c_buf = 0
+        flushFromV8 = null
+        getMethod = null
+        tuple = {}
+
+        @callback = (tupleBuffer, operation, call) =>
+          flushFromV8 ?= operation.flushFromV8
+
+          for i_tuple in [0...tupleBuffer.length / @argument_selector.length]
+            for i_field in [0...@argument_selector.length]
+              idx = (i_tuple * @argument_selector.length) + i_field
+              tuple[@argument_selector[i_field]] = tupleBuffer[idx]
+
+            outer_callback(tuple, (t) =>
+              for field in @result_fields
+                v = t[field]
+
+                if v?
+                  buf[c_buf] = v
+                else
+                  buf[c_buf] = null
+
+                c_buf += 1
+
+              if c_buf >= 8 * 1024
+                flushFromV8.apply(operation, [buf, c_buf, call])
+                c_buf = 0)
+
+          flushFromV8.apply(operation, [buf, c_buf, call])
 
         Pipe.registerPipeCallback(@callback, @pipe_index)
 

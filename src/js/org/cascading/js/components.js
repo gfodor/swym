@@ -133,15 +133,15 @@
         };
 
         Pipe.invokePipeCallback = function() {
-          var call, callback, callback_type, emitter, pipe_index, tuple;
+          var call, callback, callback_type, operation, pipe_index, tupleBuffer;
           pipe_index = arguments[0];
           callback_type = arguments[1];
-          tuple = arguments[2];
-          emitter = arguments[3];
+          tupleBuffer = arguments[2];
+          operation = arguments[3];
           call = arguments[4];
           if (callback_type == null) callback_type = "default";
           callback = Pipe.pipeCallbacks[pipe_index][callback_type];
-          return callback.apply(Pipe, [tuple, emitter, call]);
+          return callback.apply(Pipe, [tupleBuffer, operation, call]);
         };
 
         Pipe.getNextPipeIndex = function() {
@@ -178,14 +178,45 @@
         Each.prototype.is_each = true;
 
         function Each(type, outer_callback, argument_selector, result_fields) {
+          var buf, c_buf, flushFromV8, getMethod, tuple,
+            _this = this;
           this.type = type;
           this.argument_selector = argument_selector;
           this.result_fields = result_fields;
           Each.__super__.constructor.apply(this, arguments);
-          this.callback = function(tuple, emitter, call) {
-            return outer_callback(tuple, function(t) {
-              return emitter.emit(t, call);
-            });
+          buf = new Array(8 * 1024 + 128);
+          c_buf = 0;
+          flushFromV8 = null;
+          getMethod = null;
+          tuple = {};
+          this.callback = function(tupleBuffer, operation, call) {
+            var i_field, i_tuple, idx, _ref, _ref2;
+            if (flushFromV8 == null) flushFromV8 = operation.flushFromV8;
+            for (i_tuple = 0, _ref = tupleBuffer.length / _this.argument_selector.length; 0 <= _ref ? i_tuple < _ref : i_tuple > _ref; 0 <= _ref ? i_tuple++ : i_tuple--) {
+              for (i_field = 0, _ref2 = _this.argument_selector.length; 0 <= _ref2 ? i_field < _ref2 : i_field > _ref2; 0 <= _ref2 ? i_field++ : i_field--) {
+                idx = (i_tuple * _this.argument_selector.length) + i_field;
+                tuple[_this.argument_selector[i_field]] = tupleBuffer[idx];
+              }
+              outer_callback(tuple, function(t) {
+                var field, v, _i, _len, _ref3;
+                _ref3 = _this.result_fields;
+                for (_i = 0, _len = _ref3.length; _i < _len; _i++) {
+                  field = _ref3[_i];
+                  v = t[field];
+                  if (v != null) {
+                    buf[c_buf] = v;
+                  } else {
+                    buf[c_buf] = null;
+                  }
+                  c_buf += 1;
+                }
+                if (c_buf >= 8 * 1024) {
+                  flushFromV8.apply(operation, [buf, c_buf, call]);
+                  return c_buf = 0;
+                }
+              });
+            }
+            return flushFromV8.apply(operation, [buf, c_buf, call]);
           };
           Pipe.registerPipeCallback(this.callback, this.pipe_index);
         }
