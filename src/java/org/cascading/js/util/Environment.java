@@ -54,7 +54,7 @@ public class Environment {
         shell.evaluateScript(FileUtils.readFileToString(new File("lib/js/r.js")), new String[] { args.script });
 
         if (args.loadTestFramework) {
-            shell.evaluateScript(FileUtils.readFileToString(new File("test/js/execute.js")));
+            shell.evaluateScript(FileUtils.readFileToString(new File("build/test/js/execute.js")));
         }
     }
 

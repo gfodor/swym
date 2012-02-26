@@ -9,7 +9,7 @@ public class JsTestRunner {
     public static void main(String[] args) throws ScriptException, IOException, InterruptedException {
         for (final String script : args) {
             final Environment env = new Environment();
-            env.start(new Environment.EnvironmentArgs("test/js/" + script, true));
+            env.start(new Environment.EnvironmentArgs("build/test/js/" + script, true));
             env.shutdown();
             //env.getFactory().run();
         }

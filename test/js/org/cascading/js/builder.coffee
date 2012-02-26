@@ -1,6 +1,6 @@
 modules = ["builder", "schemes"]
 
-paths = ("../../../../../src/js/org/cascading/js/#{module}" for module in modules)
+paths = ("../../../../../../build/src/js/org/cascading/js/#{module}" for module in modules)
 
 #insert - declare new columns
 #replace - declare replacement map
