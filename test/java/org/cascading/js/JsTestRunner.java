@@ -11,7 +11,7 @@ public class JsTestRunner {
             final Environment env = new Environment();
             env.start(new Environment.EnvironmentArgs("test/js/" + script, true));
             env.shutdown();
-            env.getFactory().run();
+            //env.getFactory().run();
         }
     }
 }

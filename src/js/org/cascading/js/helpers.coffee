@@ -30,7 +30,7 @@ define ["./components", "./schemes"], (components, schemes) ->
 
     assembly: (name, f) ->
       throw new Error "No flow created" unless @flow
-      @assembly = this.register(@flow.add_assembly(new components.Assembly(name, @flow)))
+      assembly = this.register(@flow.add_assembly(new components.Assembly(name, @flow)))
       @assembly_stack.push(@assembly)
       f(this)
       @assembly_stack.pop()

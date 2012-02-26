@@ -109,6 +109,7 @@
         function _Class(path, scheme) {
           this.path = path;
           this.scheme = scheme;
+          this.outgoing = this.scheme.fields;
         }
 
         _Class.prototype.to_java = function() {

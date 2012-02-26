@@ -75,6 +75,7 @@ define ->
       is_tap: true
 
       constructor: (@path, @scheme) ->
+        @outgoing = @scheme.fields
 
       to_java: ->
         jscheme = @scheme.to_java()

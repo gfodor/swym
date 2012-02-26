@@ -34,8 +34,9 @@
           return new components.Tap(path, scheme);
         },
         assembly: function(name, f) {
+          var assembly;
           if (!this.flow) throw new Error("No flow created");
-          this.assembly = this.register(this.flow.add_assembly(new components.Assembly(name, this.flow)));
+          assembly = this.register(this.flow.add_assembly(new components.Assembly(name, this.flow)));
           this.assembly_stack.push(this.assembly);
           f(this);
           return this.assembly_stack.pop();
