@@ -1,6 +1,4 @@
 define ->
-  console.log("creating components")
-
   EachTypes =
     GENERATOR: 0
     FILTER: 1
@@ -81,6 +79,33 @@ define ->
         jscheme = @scheme.to_java()
         Cascading.Factory.Hfs(jscheme, @path)
 
+  Assembly:
+    class
+      is_assembly: true
+
+      constructor: (@name, parent) ->
+        if parent.is_flow?
+          @head_pipe = new Pipe(name)
+          @flow = parent
+        else
+          @head_pipe = new Pipe(name, parent.tail_pipe)
+          @flow = parent.flow
+
+        @tail_pipe = @head_pipe
+
+        source = @flow.sources[@name]
+
+        unless source
+          throw new Error("Unknown source #{@name} for assembly")
+
+        @head_pipe.incoming = @head_pipe.outgoing = source.outgoing
+
+      add_pipe: (pipe) ->
+        pipe.parent_pipe = @tail_pipe
+        @tail_pipe = pipe
+
+      to_java: ->
+        @tail_pipe.to_java(@tail_pipe.parent_pipe)
   Pipe:
     class Pipe
       @registerPipeCallback: (callback, pipe_index, callback_type) =>
@@ -180,21 +205,3 @@ define ->
     class CoGroup extends Pipe
       is_co_group: true
 
-  Assembly:
-    class
-      is_assembly: true
-
-      constructor: (@name, parent) ->
-        if parent.is_flow?
-          @head_pipe = new Pipe(name)
-        else
-          @head_pipe = new Pipe(name, parent.tail_pipe)
-
-        @tail_pipe = @head_pipe
-
-      add_pipe: (pipe) ->
-        pipe.parent_pipe = @tail_pipe
-        @tail_pipe = pipe
-
-      to_java: ->
-        @tail_pipe.to_java(@tail_pipe.parent_pipe)

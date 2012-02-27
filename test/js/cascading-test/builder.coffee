@@ -1,7 +1,3 @@
-modules = ["builder", "schemes"]
-
-paths = ("../../../../../../build/src/js/org/cascading/js/#{module}" for module in modules)
-
 #insert - declare new columns
 #replace - declare replacement map
 #remove - declare removal list
@@ -13,11 +9,14 @@ listing_fields = [ "listing_id", "state", "user_id", "title", "description", "cr
   "state_tsz", "last_modified_tsz_epoch", "saturation", "brightness", "is_black_and_white"
 ]
 
-require paths, (builder, schemes) ->
+require { baseUrl: "lib/js" }, ["cascading/builder", "cascading/schemes"], (builder, schemes) ->
   with_test_flow = (f) ->
     cascade = builder.cascade ($) ->
       $.flow 'word_counter', ->
         f($)
+
+  expect_bad_flow = (msg, f) ->
+    expect(-> with_test_flow(f)).toThrow(new Error(msg))
 
   describe "job builder", ->
     it "should set outgoing scope on tap", ->
@@ -25,18 +24,40 @@ require paths, (builder, schemes) ->
         tap = $.source 'input', $.tap("listings.txt", new schemes.TextLine())
         expect(tap.outgoing).toEqual ["line"]
 
+      with_test_flow ($) ->
+        tap = $.source 'input', $.tap("listings.txt", new schemes.TextLine("offset", "line"))
+        expect(tap.outgoing).toEqual ["offset", "line"]
+
+    it "should fail if trying to tap bad source name", ->
+      expect_bad_flow "Unknown source bad_input for assembly", ($) ->
+        $.source 'input', $.tap("listings.txt", new schemes.TextLine("offset", "line_1"))
+
+        a1 = $.assembly 'bad_input', ->
+
+        $.sink 'input', $.tap("output", new schemes.TextLine())
+
     it "should set incoming scope on assembly", ->
       with_test_flow ($) ->
         $.source 'input', $.tap("listings.txt", new schemes.TextLine("offset", "line_1"))
         $.source 'input_2', $.tap("listings.txt", new schemes.TextLine("line_2"))
-        console.log($.assembly)
 
         a1 = $.assembly 'input', ->
         a2 = $.assembly 'input_2', ->
 
-        expect(a1.incoming).toEqual ["offset", "line_1"]
-        expect(a2.incoming).toEqual ["line_2"]
+        expect(a1.head_pipe.incoming).toEqual ["offset", "line_1"]
+        expect(a1.head_pipe.outgoing).toEqual ["offset", "line_1"]
+        expect(a2.head_pipe.incoming).toEqual ["line_2"]
+        expect(a2.head_pipe.incoming).toEqual ["line_2"]
 
+    it "should fail if no sinks", ->
+    it "should fail if no assembly for sink", ->
+    it "should fail if duplicate assembly", ->
+    it "should fail if duplicate source", ->
+    it "should fail if duplicate sink", ->
+    it "should fail if any unbound sinks", ->
+    it "should fail if any unbound sources", ->
+    it "should fail if TextLine doesn't have 0, 1, 2 fields", ->
+    it "should fail if textline doesn't have 1 or 2 fields", ->
 
 
       #c = builder.cascade ($) ->

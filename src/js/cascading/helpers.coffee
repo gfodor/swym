@@ -34,6 +34,7 @@ define ["./components", "./schemes"], (components, schemes) ->
       @assembly_stack.push(@assembly)
       f(this)
       @assembly_stack.pop()
+      assembly
 
     current_assembly: ->
       @assembly_stack[0]

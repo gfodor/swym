@@ -8,9 +8,9 @@ define ->
 
   TextLine:
     class extends Scheme
-      constructor: (@fields) ->
+      constructor: (@fields...) ->
         @scheme_type = "TextLine"
-        @fields ?= ["line"]
+        @fields = ["line"] if @fields.length == 0
 
       to_java: ->
         Cascading.Factory.TextLine(@fields)

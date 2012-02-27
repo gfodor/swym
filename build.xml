@@ -112,7 +112,7 @@
     <java classname="org.cascading.js.JsTestRunner" fork="true">
       <sysproperty key="java.library.path" value="${lib.jav8}"/>
 
-      <arg value="org/cascading/js/builder.js"></arg>
+      <arg value="/js/cascading-test/builder.js"></arg>
 
       <classpath>
         <path refid="project.class.path"/>

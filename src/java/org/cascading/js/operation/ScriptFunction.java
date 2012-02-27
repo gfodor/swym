@@ -37,11 +37,11 @@ public class ScriptFunction extends BaseOperation<V8OperationContext> implements
             String pathPrefix = "";
 
             if (environmentArgs.isLoadTestFramework()) {
-                pathPrefix = "../../../../../";
+                pathPrefix = "../../lib/js";
             }
 
             env.evaluateScript("var __dummy;");
-            env.evaluateScript("require([\"" + pathPrefix + "src/js/org/cascading/js/components\"], function(components) {" +
+            env.evaluateScript("require([\"" + pathPrefix + "cascading/components\"], function(components) {" +
                                "  __dummy = components.Pipe; });");
             V8Object v8PipeClass = (V8Object)env.extractObject("__dummy");
             env.evaluateScript("delete __dummy");

@@ -1,0 +1,7 @@
+#!/usr/bin/env coffee
+
+# Watches & Compiles the scripts
+spawn = require('child_process').spawn
+runner = spawn('coffee', ['-o', 'lib/js', '-w', '-c', 'src/js', 'test/js'])
+runner.stdout.on('data', (d) -> console.log("" + d))
+runner.stderr.on('data', (d) -> console.log("" + d))
