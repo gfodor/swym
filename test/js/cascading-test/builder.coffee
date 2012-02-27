@@ -52,12 +52,42 @@ require { baseUrl: "lib/js" }, ["cascading/builder", "cascading/schemes"], (buil
     it "should fail if no sinks", ->
     it "should fail if no assembly for sink", ->
     it "should fail if duplicate assembly", ->
+      expect_bad_flow "Duplicate assembly input", ($) ->
+        $.source 'input', $.tap("listings.txt", new schemes.TextLine("offset", "line_1"))
+
+        a1 = $.assembly 'input', ->
+        a1 = $.assembly 'input', ->
+
+        $.sink 'input', $.tap("output", new schemes.TextLine())
+
     it "should fail if duplicate source", ->
+      expect_bad_flow "Duplicate source input", ($) ->
+        $.source 'input', $.tap("listings.txt", new schemes.TextLine("offset", "line_1"))
+        $.source 'input', $.tap("listings.txt", new schemes.TextLine("offset", "line_1"))
+
+        a1 = $.assembly 'input', ->
+
+        $.sink 'input', $.tap("output", new schemes.TextLine())
+
     it "should fail if duplicate sink", ->
+      expect_bad_flow "Duplicate sink input", ($) ->
+        $.source 'input', $.tap("listings.txt", new schemes.TextLine("offset", "line_1"))
+
+        a1 = $.assembly 'input', ->
+
+        $.sink 'input', $.tap("output", new schemes.TextLine())
+        $.sink 'input', $.tap("output", new schemes.TextLine())
+
     it "should fail if any unbound sinks", ->
     it "should fail if any unbound sources", ->
+
     it "should fail if TextLine doesn't have 0, 1, 2 fields", ->
-    it "should fail if textline doesn't have 1 or 2 fields", ->
+      expect_bad_flow "TextLine can only have at most two fields (one for offset, one for line)", ($) ->
+        $.source 'input', $.tap("listings.txt", new schemes.TextLine("offset", "line_1", "line_2"))
+
+        a1 = $.assembly 'input', ->
+
+        $.sink 'input', $.tap("output", new schemes.TextLine())
 
 
       #c = builder.cascade ($) ->

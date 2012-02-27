@@ -74,6 +74,7 @@ define ->
 
       constructor: (@path, @scheme) ->
         @outgoing = @scheme.fields
+        @is_bound = false
 
       to_java: ->
         jscheme = @scheme.to_java()
