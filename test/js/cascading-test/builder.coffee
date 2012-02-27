@@ -94,12 +94,19 @@ require { baseUrl: "lib/js" }, ["cascading/builder", "cascading/schemes", "under
           $.source 'input', $.tap("listings.txt", new schemes.TextLine("offset", "line"))
 
           $.assembly 'input', ->
-            # Insert upcase, rename offset, remove line
             insert_step = $.each_step { upcase: null, offset: "line_number", line: null }, (tuple, emitter) ->
               emitter({ upcase: line.toUpperCase() })
 
             expect(insert_step.incoming.sort()).toEqual ["line", "offset"].sort()
             expect(insert_step.outgoing.sort()).toEqual ["line_number", "upcase"].sort()
+
+     it "should exception if trying to rename an invalid field", ->
+        expect_bad_flow "Invalid field bogus being renamed to line_number", ($) ->
+          $.source 'input', $.tap("listings.txt", new schemes.TextLine("offset", "line"))
+
+          $.assembly 'input', ->
+            $.each_step { bogus: "line_number", line: null }, (tuple, emitter) ->
+              emitter({ upcase: line.toUpperCase() })
 
       #c = builder.cascade ($) ->
       #  $.flow 'word_counter', ->

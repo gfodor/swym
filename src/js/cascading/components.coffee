@@ -245,10 +245,11 @@ define ["underscore"], (_) ->
 
       connect_to_incoming: (incoming) ->
         @incoming = incoming
-
         @outgoing = @incoming.slice(0)
 
         for field, target of @spec
+          throw new Error("Invalid field #{field} being renamed to #{target}") if target && !_.include(@incoming, field)
+
           if field in @outgoing
             @outgoing = _.without(@outgoing, field)
             @outgoing.push(target) if target?
