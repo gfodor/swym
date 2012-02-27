@@ -9,7 +9,7 @@ listing_fields = [ "listing_id", "state", "user_id", "title", "description", "cr
   "state_tsz", "last_modified_tsz_epoch", "saturation", "brightness", "is_black_and_white"
 ]
 
-require { baseUrl: "lib/js" }, ["cascading/builder", "cascading/schemes"], (builder, schemes) ->
+require { baseUrl: "lib/js" }, ["cascading/builder", "cascading/schemes", "underscore"], (builder, schemes, _) ->
   with_test_flow = (f) ->
     cascade = builder.cascade ($) ->
       $.flow 'word_counter', ->
@@ -89,6 +89,17 @@ require { baseUrl: "lib/js" }, ["cascading/builder", "cascading/schemes"], (buil
 
         $.sink 'input', $.tap("output", new schemes.TextLine())
 
+     it "should propagate fields correctly for map spec", ->
+        with_test_flow ($) ->
+          $.source 'input', $.tap("listings.txt", new schemes.TextLine("offset", "line"))
+
+          $.assembly 'input', ->
+            # Insert upcase, rename offset, remove line
+            insert_step = $.each_step { upcase: null, offset: "line_number", line: null }, (tuple, emitter) ->
+              emitter({ upcase: line.toUpperCase() })
+
+            expect(insert_step.incoming.sort()).toEqual ["line", "offset"].sort()
+            expect(insert_step.outgoing.sort()).toEqual ["line_number", "upcase"].sort()
 
       #c = builder.cascade ($) ->
       #  $.flow 'word_counter', ->

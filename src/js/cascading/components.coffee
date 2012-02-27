@@ -1,4 +1,4 @@
-define ->
+define ["underscore"], (_) ->
   EachTypes =
     GENERATOR: 0
     FILTER: 1
@@ -85,28 +85,35 @@ define ->
       is_assembly: true
 
       constructor: (@name, parent) ->
-        if parent.is_flow?
-          @head_pipe = new Pipe(name)
-          @flow = parent
-        else
-          @head_pipe = new Pipe(name, parent.tail_pipe)
-          @flow = parent.flow
+        @flow = if parent.is_flow? then parent else parent.flow
+        @source = @flow.sources[@name]
 
-        @tail_pipe = @head_pipe
-
-        source = @flow.sources[@name]
-
-        unless source
+        unless @source
           throw new Error("Unknown source #{@name} for assembly")
 
-        @head_pipe.incoming = @head_pipe.outgoing = source.outgoing
+        if parent.is_flow?
+          new Pipe(this, name)
+        else
+          new Pipe(this, name, parent.tail_pipe)
+
+      current_each: ->
+        @last_each_pipe ?= this.add_pipe(new Each(this))
 
       add_pipe: (pipe) ->
-        pipe.parent_pipe = @tail_pipe
+        @last_each_pipe = pipe if pipe.is_each?
+
+        unless @tail_pipe
+          @head_pipe = pipe
+          pipe.connect_to_incoming(@source.outgoing)
+        else
+          pipe.parent_pipe = @tail_pipe
+          pipe.connect_to_incoming(@tail_pipe.outgoing)
+
         @tail_pipe = pipe
 
       to_java: ->
         @tail_pipe.to_java(@tail_pipe.parent_pipe)
+
   Pipe:
     class Pipe
       @registerPipeCallback: (callback, pipe_index, callback_type) =>
@@ -133,9 +140,13 @@ define ->
 
       is_pipe: true
 
-      constructor: (@name, @parent_pipe) ->
+      constructor: (assembly, @name, @parent_pipe) ->
         @parent_pipe ?= null
         @pipe_index = Pipe.getNextPipeIndex()
+        assembly.add_pipe(this)
+
+      connect_to_incoming: (incoming) ->
+        @incoming = @outgoing = incoming
 
       to_java: ->
         parent_jpipe = @parent_pipe?.to_java()
@@ -149,46 +160,65 @@ define ->
     class Each extends Pipe
       is_each: true
 
-      constructor: (@type, outer_callback, @argument_selector, @result_fields) ->
-        super
+      constructor: (assembly) ->
+        super(assembly)
 
-        buf = new Array(8 * 1024 + 128)
-        c_buf = 0
-        flushFromV8 = null
-        getMethod = null
-        tuple = {}
+        @steps = []
 
-        @callback = (tupleBuffer, operation, call) =>
-          flushFromV8 ?= operation.flushFromV8
+      add_step: (step) ->
+        throw new Error("Not an each step") unless step.is_each_step?
 
-          for i_tuple in [0...tupleBuffer.length / @argument_selector.length]
-            for i_field in [0...@argument_selector.length]
-              idx = (i_tuple * @argument_selector.length) + i_field
-              tuple[@argument_selector[i_field]] = tupleBuffer[idx]
+        tail_step = _.last(@steps)
+        step.connect_to_incoming(if tail_step then tail_step.outgoing else @incoming)
 
-            outer_callback(tuple, (t) =>
-              for field in @result_fields
-                v = t[field]
+        @steps.unshift(step)
+        @outgoing = step.outgoing
 
-                if v?
-                  buf[c_buf] = v
-                else
-                  buf[c_buf] = null
-
-                c_buf += 1
-
-              if c_buf >= 8 * 1024
-                flushFromV8.apply(operation, [buf, c_buf, call])
-                c_buf = 0)
-
-          flushFromV8.apply(operation, [buf, c_buf, call])
-
-        Pipe.registerPipeCallback(@callback, @pipe_index)
+        step
 
       to_java: (parent_pipe) ->
         if @type == EachTypes.GENERATOR
           parent_jpipe = @parent_pipe?.to_java()
           Cascading.Factory.GeneratorEach(@argument_selector, @result_fields, Cascading.EnvironmentArgs, @pipe_index, parent_jpipe)
+
+      #constructor: (@type, outer_callback, @argument_selector, @result_fields) ->
+      #  super
+
+      #  @steps = []
+
+      #  buf = new Array(8 * 1024 + 128)
+      #  c_buf = 0
+      #  flushFromV8 = null
+      #  getMethod = null
+      #  tuple = {}
+
+      #  @callback = (tupleBuffer, operation, call) =>
+      #    flushFromV8 ?= operation.flushFromV8
+
+      #    for i_tuple in [0...tupleBuffer.length / @argument_selector.length]
+      #      for i_field in [0...@argument_selector.length]
+      #        idx = (i_tuple * @argument_selector.length) + i_field
+      #        tuple[@argument_selector[i_field]] = tupleBuffer[idx]
+
+      #      outer_callback(tuple, (t) =>
+      #        for field in @result_fields
+      #          v = t[field]
+
+      #          if v?
+      #            buf[c_buf] = v
+      #          else
+      #            buf[c_buf] = null
+
+      #          c_buf += 1
+
+      #        if c_buf >= 8 * 1024
+      #          flushFromV8.apply(operation, [buf, c_buf, call])
+      #          c_buf = 0)
+
+      #    flushFromV8.apply(operation, [buf, c_buf, call])
+
+      #  Pipe.registerPipeCallback(@callback, @pipe_index)
+
 
   Every:
     class Every extends Pipe
@@ -206,3 +236,21 @@ define ->
     class CoGroup extends Pipe
       is_co_group: true
 
+  EachStep:
+    class EachStep
+      is_each_step: true
+
+      constructor: (each, @spec, @callback) ->
+        each.add_step(this)
+
+      connect_to_incoming: (incoming) ->
+        @incoming = incoming
+
+        @outgoing = @incoming.slice(0)
+
+        for field, target of @spec
+          if field in @outgoing
+            @outgoing = _.without(@outgoing, field)
+            @outgoing.push(target) if target?
+          else
+            @outgoing.push(field)

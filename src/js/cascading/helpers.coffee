@@ -31,7 +31,7 @@ define ["./components", "./schemes"], (components, schemes) ->
     assembly: (name, f) ->
       throw new Error "No flow created" unless @flow
       assembly = this.register(@flow.add_assembly(new components.Assembly(name, @flow)))
-      @assembly_stack.push(@assembly)
+      @assembly_stack.push(assembly)
       f(this)
       @assembly_stack.pop()
       assembly
@@ -84,6 +84,9 @@ define ["./components", "./schemes"], (components, schemes) ->
       this.current_assembly().add_pipe(pipe)
       pipe
 
+    each_step: (spec, callback) ->
+      each = this.current_assembly().current_each()
+      new components.EachStep(each, spec, callback)
 
   EveryPipes:
     count: ->
