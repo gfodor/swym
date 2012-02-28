@@ -42,7 +42,7 @@ define ["./components", "./schemes"], (components, schemes) ->
     group_by: (fields, params, f) ->
       throw new Error("Cannot nest group bys") if this.is_in_group_by()
 
-      f = params if typeof(params) == "function" && !f?
+      f = params if typeof(params) == "function" and not f?
 
       if typeof(fields) == "string"
         fields = [fields]
@@ -84,7 +84,7 @@ define ["./components", "./schemes"], (components, schemes) ->
       this.current_assembly().add_pipe(pipe)
       pipe
 
-    each_step: (spec, callback) ->
+    map: (spec, callback) ->
       each = this.current_assembly().current_each()
       new components.EachStep(each, spec, callback)
 

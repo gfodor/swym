@@ -171,10 +171,45 @@ define ["underscore"], (_) ->
         tail_step = _.last(@steps)
         step.connect_to_incoming(if tail_step then tail_step.outgoing else @incoming)
 
-        @steps.unshift(step)
+        @steps[@steps.length] = step
         @outgoing = step.outgoing
 
+        # Re-generate the processor each time a new step is added
+        @processor = @build_processor()
+
         step
+
+      # Builds a processor function that expects a tuple and a function called 
+      # the receiver.
+
+      # The processor, when passed a tuple, will run it through via the 
+      # user specified step functions on each step of this pipe and 
+      # send the result to the specified reciever function.
+      build_processor: ->
+        functions = _.pluck @steps, "function"
+        writers = []
+
+        # generates the 'writer' functions passed to each user-specified
+        # function for the steps. These writer functions just pass the received
+        # tuple along to the next step's function, or to the final receiver.
+        get_writer = (level, receiver) ->
+          current_writer = writers[level]
+          return current_writer if current_writer
+          return receiver if functions.length == 0
+
+          f = functions[level + 1]
+
+          if f
+            next_writer = get_writer(level + 1, receiver)
+
+            writers[level] = (tuple) ->
+              f tuple, next_writer
+          else
+            writers[level] = (tuple) ->
+              receiver tuple
+
+        (tuple, receiver) ->
+          functions[0] tuple, get_writer(0, receiver)
 
       to_java: (parent_pipe) ->
         if @type == EachTypes.GENERATOR
@@ -240,18 +275,20 @@ define ["underscore"], (_) ->
     class EachStep
       is_each_step: true
 
-      constructor: (each, @spec, @callback) ->
-        each.add_step(this)
+      constructor: (@each, @spec, @function) ->
+        @each.add_step(this)
 
       connect_to_incoming: (incoming) ->
         @incoming = incoming
         @outgoing = @incoming.slice(0)
 
-        for field, target of @spec
-          throw new Error("Invalid field #{field} being renamed to #{target}") if target && !_.include(@incoming, field)
+        if @spec.add?
+          for field in @spec.add
+            @outgoing[@outgoing.length] = field unless _.include(@outgoing, field)
 
-          if field in @outgoing
-            @outgoing = _.without(@outgoing, field)
-            @outgoing.push(target) if target?
-          else
-            @outgoing.push(field)
+        if @spec.remove?
+          for field in @spec.remove
+            throw new Error("Cannot remove field #{field} being added in same step") if @spec.add? and _.include @spec.add, field
+            throw new Error("Invalid field #{field} being removed") if not _.include(@incoming, field)
+
+            @outgoing = _.without @outgoing, field

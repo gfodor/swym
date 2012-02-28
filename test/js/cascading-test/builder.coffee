@@ -94,19 +94,50 @@ require { baseUrl: "lib/js" }, ["cascading/builder", "cascading/schemes", "under
           $.source 'input', $.tap("listings.txt", new schemes.TextLine("offset", "line"))
 
           $.assembly 'input', ->
-            insert_step = $.each_step { upcase: null, offset: "line_number", line: null }, (tuple, emitter) ->
-              emitter({ upcase: line.toUpperCase() })
+            insert_step = $.map { add: ["upcase", "line_number"], remove: ["offset", "line"] }, (tuple, writer) ->
+              writer({ upcase: line.toUpperCase(), line_number: tuple.offset })
 
             expect(insert_step.incoming.sort()).toEqual ["line", "offset"].sort()
             expect(insert_step.outgoing.sort()).toEqual ["line_number", "upcase"].sort()
 
      it "should exception if trying to rename an invalid field", ->
-        expect_bad_flow "Invalid field bogus being renamed to line_number", ($) ->
+        expect_bad_flow "Invalid field bogus being removed", ($) ->
           $.source 'input', $.tap("listings.txt", new schemes.TextLine("offset", "line"))
 
           $.assembly 'input', ->
-            $.each_step { bogus: "line_number", line: null }, (tuple, emitter) ->
-              emitter({ upcase: line.toUpperCase() })
+            $.map { remove: ["bogus"] }, (tuple, writer) ->
+              writer({ upcase: line.toUpperCase() })
+
+     it "should generate a correct processor function", ->
+        with_test_flow ($) ->
+          $.source 'input', $.tap("listings.txt", new schemes.TextLine("offset", "line"))
+
+          $.assembly 'input', ->
+            $.map { add: ["word"], remove: ["line"] }, (tuple, writer) ->
+              for word in tuple.line.match(/\S+/g)
+                writer({ word: word })
+
+            $.map { }, (tuple, writer) ->
+              tuple.word = tuple.word.toUpperCase()
+              writer(tuple)
+
+            final_map = $.map { add: "word_copy" }, (tuple, writer) ->
+              tuple.word_copy = tuple.word
+              writer(tuple)
+
+            output = []
+
+            final_map.each.processor { line: "hello world" }, (out) ->
+              output[output.length] = out
+
+            expect(output.length).toEqual(2)
+            expect(output[0].line).toBeUndefined()
+            expect(output[0].word).toEqual("HELLO")
+            expect(output[0].word_copy).toEqual("HELLO")
+
+            expect(output[1].line).toBeUndefined()
+            expect(output[1].word).toEqual("WORLD")
+            expect(output[1].word_copy).toEqual("WORLD")
 
       #c = builder.cascade ($) ->
       #  $.flow 'word_counter', ->
