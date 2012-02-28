@@ -18,14 +18,14 @@ import java.io.IOException;
 
 public class ScriptFunction extends BaseOperation<V8OperationContext> implements Function<V8OperationContext> {
     private Environment.EnvironmentArgs environmentArgs;
-    private int pipeIndex;
+    private int pipeId;
     private Fields argumentSelector;
 
-    public ScriptFunction(Fields argumentSelector, Fields resultFields, Environment.EnvironmentArgs environmentArgs, int pipeIndex) {
+    public ScriptFunction(Fields argumentSelector, Fields resultFields, Environment.EnvironmentArgs environmentArgs, int pipeId) {
         super(resultFields.size(), resultFields);
         this.argumentSelector = argumentSelector;
         this.environmentArgs = environmentArgs;
-        this.pipeIndex = pipeIndex;
+        this.pipeId = pipeId;
     }
 
     @Override
@@ -64,12 +64,11 @@ public class ScriptFunction extends BaseOperation<V8OperationContext> implements
             if (bufferArray == null) {
                 bufferArray = env.createArray(ctx.getBuffer());
             } else {
-                // TODO bug if the buffer is in the last pass
                 bufferArray.setElements(ctx.getBuffer());
             }
 
-            env.invokeMethod(ctx.getV8PipeClass(), "invokePipeCallback",
-                    pipeIndex, "default", bufferArray, this, call);
+            env.invokeMethod(ctx.getV8PipeClass(), "processTuples",
+                    pipeId, "default", bufferArray, ctx.bufferCount(), this, call);
 
             ctx.clearBuffer();
         } catch (ScriptException e) {

@@ -116,33 +116,46 @@ define ["underscore"], (_) ->
 
   Pipe:
     class Pipe
-      @registerPipeCallback: (callback, pipe_index, callback_type) =>
-        callback_type ?= "default"
-        this.pipeCallbacks ?= {}
-        this.pipeCallbacks[pipe_index] ?= {}
-        this.pipeCallbacks[pipe_index][callback_type] = callback
+      @registerPipe: (pipe) =>
+        this.current_pipe_id ?= 0
+        this.current_pipe_id += 1
 
-      @invokePipeCallback: =>
-        pipe_index = arguments[0]
-        callback_type = arguments[1]
-        tupleBuffer = arguments[2]
-        operation = arguments[3]
-        call = arguments[4]
+        pipe.pipe_id = this.current_pipe_id
 
-        callback_type ?= "default"
-        callback = this.pipeCallbacks[pipe_index][callback_type]
+        this.pipes ?= {}
+        this.pipes[pipe.pipe_id] = pipe
 
-        callback.apply(this, [tupleBuffer, operation, call])
+      @processTuples: (pipe_id, in_buffer, in_buffer_length, operation, call) =>
+        processor = this.pipes[pipe_id].processor
 
-      @getNextPipeIndex: =>
-        this.current_pipe_index ?= 0
-        this.current_pipe_index += 1
+        buffer_flush_size = 8 * 1024
+        out_buffer = new Array(buffer_flush_size + 256)
+        out_buffer_length = 0
+
+        flush ?= operation.flushFromV8
+        tuple = {}
+
+        for i_tuple in [0...in_buffer_length / @argument_selector.length]
+          for i_field in [0...@argument_selector.length]
+            idx = (i_tuple * @argument_selector.length) + i_field
+            tuple[@argument_selector[i_field]] = in_buffer
+
+          processor tuple, (t) =>
+            for field in @result_fields
+              out_buffer[out_buffer_length] = t[field] ? null
+              out_buffer_length += 1
+
+            if out_buffer_length >= buffer_flush_size
+              flush.apply(operation, [out_buffer, out_buffer_length, call])
+              out_buffer_length = 0
+
+          flush.apply(operation, [out_buffer, out_buffer_length, call])
 
       is_pipe: true
 
       constructor: (assembly, @name, @parent_pipe) ->
         @parent_pipe ?= null
-        @pipe_index = Pipe.getNextPipeIndex()
+        Pipe.registerPipe(this)
         assembly.add_pipe(this)
 
       connect_to_incoming: (incoming) ->
@@ -214,46 +227,7 @@ define ["underscore"], (_) ->
       to_java: (parent_pipe) ->
         if @type == EachTypes.GENERATOR
           parent_jpipe = @parent_pipe?.to_java()
-          Cascading.Factory.GeneratorEach(@argument_selector, @result_fields, Cascading.EnvironmentArgs, @pipe_index, parent_jpipe)
-
-      #constructor: (@type, outer_callback, @argument_selector, @result_fields) ->
-      #  super
-
-      #  @steps = []
-
-      #  buf = new Array(8 * 1024 + 128)
-      #  c_buf = 0
-      #  flushFromV8 = null
-      #  getMethod = null
-      #  tuple = {}
-
-      #  @callback = (tupleBuffer, operation, call) =>
-      #    flushFromV8 ?= operation.flushFromV8
-
-      #    for i_tuple in [0...tupleBuffer.length / @argument_selector.length]
-      #      for i_field in [0...@argument_selector.length]
-      #        idx = (i_tuple * @argument_selector.length) + i_field
-      #        tuple[@argument_selector[i_field]] = tupleBuffer[idx]
-
-      #      outer_callback(tuple, (t) =>
-      #        for field in @result_fields
-      #          v = t[field]
-
-      #          if v?
-      #            buf[c_buf] = v
-      #          else
-      #            buf[c_buf] = null
-
-      #          c_buf += 1
-
-      #        if c_buf >= 8 * 1024
-      #          flushFromV8.apply(operation, [buf, c_buf, call])
-      #          c_buf = 0)
-
-      #    flushFromV8.apply(operation, [buf, c_buf, call])
-
-      #  Pipe.registerPipeCallback(@callback, @pipe_index)
-
+          Cascading.Factory.Each(@argument_selector, @result_fields, Cascading.EnvironmentArgs, @pipe_id, parent_jpipe)
 
   Every:
     class Every extends Pipe

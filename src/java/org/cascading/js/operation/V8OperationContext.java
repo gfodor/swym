@@ -32,6 +32,10 @@ public class V8OperationContext {
         bufferCount = 0;
     }
 
+    public int bufferCount() {
+       return bufferCount;
+    }
+
     public Object[] getBuffer() {
         if (bufferCount == OUTGOING_BUFFER_SIZE * argumentFields.size()) {
             return buffer;
