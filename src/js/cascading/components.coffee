@@ -116,7 +116,7 @@ define ["underscore"], (_) ->
 
   Pipe:
     class Pipe
-      @registerPipe: (pipe) =>
+      @register_pipe: (pipe) =>
         this.current_pipe_id ?= 0
         this.current_pipe_id += 1
 
@@ -125,19 +125,20 @@ define ["underscore"], (_) ->
         this.pipes ?= {}
         this.pipes[pipe.pipe_id] = pipe
 
-      @processTuples: (pipe_id, in_buffer, in_buffer_length, operation, call) =>
+      @process_tuples: (pipe_id, in_buffer, in_buffer_length, operation, call) =>
         processor = this.pipes[pipe_id].processor
 
         buffer_flush_size = 8 * 1024
         out_buffer = new Array(buffer_flush_size + 256)
         out_buffer_length = 0
+        argument_selector_length = @argument_selector.length
 
         flush ?= operation.flushFromV8
         tuple = {}
 
-        for i_tuple in [0...in_buffer_length / @argument_selector.length]
-          for i_field in [0...@argument_selector.length]
-            idx = (i_tuple * @argument_selector.length) + i_field
+        for i_tuple in [0...in_buffer_length / argument_selector_length]
+          for i_field in [0...argument_selector_length]
+            idx = (i_tuple * argument_selector_length) + i_field
             tuple[@argument_selector[i_field]] = in_buffer
 
           processor tuple, (t) =>
@@ -155,7 +156,7 @@ define ["underscore"], (_) ->
 
       constructor: (assembly, @name, @parent_pipe) ->
         @parent_pipe ?= null
-        Pipe.registerPipe(this)
+        Pipe.register_pipe(this)
         assembly.add_pipe(this)
 
       connect_to_incoming: (incoming) ->
