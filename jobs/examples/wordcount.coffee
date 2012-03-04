@@ -1,6 +1,6 @@
 #require( { baseUrl: '../../lib/js' } )
 
-job ($) ->
+job ($, _) ->
   $.flow 'word count', ->
     $.source 'input', $.tap("data/listings.txt", $.text_line_scheme("offset", "line"))
 

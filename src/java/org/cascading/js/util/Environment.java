@@ -60,7 +60,7 @@ public class Environment {
             shell.evaluateScript(FileUtils.readFileToString(new File("lib/js/jasmine.js")));
         } else if (args.isJob()) {
             shell.evaluateScript("var job = function(f) { require({ baseUrl: 'lib/js' }); " +
-                                 "require([\"cascading/builder\", \"cascading/schemes\"], function (b) { return b.cascade(f).to_java(); }); };");
+                                 "require([\"cascading/builder\", \"underscore\"], function (b, _) { return b.cascade(function($) { f($, _); }).to_java(); }); };");
         }
 
         shell.evaluateScript(FileUtils.readFileToString(new File("lib/js/r.js")), new String[] { args.script });

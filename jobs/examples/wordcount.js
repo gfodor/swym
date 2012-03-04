@@ -1,6 +1,6 @@
 (function() {
 
-  job(function($) {
+  job(function($, _) {
     return $.flow('word count', function() {
       var assembly;
       $.source('input', $.tap("data/listings.txt", $.text_line_scheme("offset", "line")));
