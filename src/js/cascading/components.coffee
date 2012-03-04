@@ -238,7 +238,7 @@ define ["underscore"], (_) ->
     class GroupBy extends Pipe
       is_group_by: true
 
-      constructor: (@group_fields, params) ->
+      constructor: (@group_fields, params, @processor, @finalizer) ->
         throw new Error("Invalid group by fields #{@group_fields}") unless typeof(@group_fields) == "object"
         @sort_fields = params?.sort_fields ? []
 

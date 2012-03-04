@@ -52,6 +52,13 @@ define ["./components", "./schemes"], (components, schemes) ->
       f()
       @current_group_by = null
 
+    foreach_group: (fields, params, processor, finalizer) ->
+      if typeof(fields) == "string"
+        fields = [fields]
+
+      group_by = new components.GroupBy(fields, params, processor, finalizer)
+      this.current_assembly().add_pipe(group_by)
+
     is_in_group_by: ->
       @current_group_by?
 
