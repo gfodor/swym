@@ -1,6 +1,9 @@
 .idea
 src/Cascading.js.iml
+test/*.iml
+src/*.iml
 out
 *.class
 output
 build
+*.iml

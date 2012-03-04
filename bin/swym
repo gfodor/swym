@@ -1,10 +1,10 @@
 #!/bin/bash
 # -----------------------------------------------------------------------------
-# jruby.sh - Start Script for the JRuby interpreter
+# swym.sh - Start Script for swym
 #
 # Environment Variable Prequisites
 #
-#   SWYM_OPTS    (Optional) Default JRuby command line args
+#   SWYM_OPTS    (Optional) Default swym command line args
 #   SWYM_SHELL   Where/What is system shell
 #
 #   JAVA_HOME     Must point at your Java Development Kit installation.
@@ -22,10 +22,10 @@ esac
 # Figure out the OS and cpu the same as JNA would, so the library path can be set
 #
 case "`uname -m`" in
-  i[34567]86) JNA_CPU=i386; JNA_ALT_CPU=amd64;;
-  i86pc) JNA_CPU="x86"; JNA_ALT_CPU=amd64;;
-  amd64|x86_64) JNA_CPU=amd64; JNA_ALT_CPU=i386;;
-  sparc*) JNA_CPU=sparc; JNA_ALT_CPU=sparcv9;;
+  i[34567]86) JNI_CPU=i386; JNI_ALT_CPU=amd64;;
+  i86pc) JNI_CPU="x86"; JNI_ALT_CPU=amd64;;
+  amd64|x86_64) JNI_CPU=amd64; JNI_ALT_CPU=i386;;
+  sparc*) JNI_CPU=sparc; JNI_ALT_CPU=sparcv9;;
 esac
 
 # ----- Verify and Set Required Environment Variables -------------------------
@@ -69,18 +69,13 @@ else
   JAVA_CMD="$JAVA_HOME/bin/java"
 fi
 
-# If you're seeing odd exceptions, you may have a bad JVM install.
-# Uncomment this and report the version to the JRuby team along with error.
-#$JAVA_CMD -version
-
 SWYM_SHELL=/bin/sh
 
 # ----- Set Up The Boot Classpath -------------------------------------------
 
 CP_DELIMETER=":"
 
-# add jruby jars for command-line execution
-# TODO use jar
+# add swym jars for command-line execution
 for j in "$SWYM_HOME"/build/java/*.jar; do
     if [ "$SWYM_CP" ]; then
         SWYM_CP="$SWYM_CP$CP_DELIMETER$j"
@@ -96,11 +91,11 @@ fi
 # ----- Set Up The System Classpath -------------------------------------------
 
 if [ "$SWYM_PARENT_CLASSPATH" != "" ]; then
-    # Use same classpath propagated from parent jruby
+    # Use same classpath propagated from parent swym
     CP=$SWYM_PARENT_CLASSPATH
 else
     # add other jars in lib to CP for command-line execution
-    for j in "$SWYM_HOME"/lib/*.jar; do
+    for j in "$SWYM_HOME"/lib/java/*.jar; do
         if [ "$CP" ]; then
             CP="$CP$CP_DELIMETER$j"
             else
@@ -141,11 +136,11 @@ do
             JAVA_STACK=$val
         elif [ "${val}" = "" ]; then
             $JAVA_CMD -help
-            echo "(Prepend -J in front of these options when using 'jruby' command)" 
+            echo "(Prepend -J in front of these options when using 'swym' command)" 
             exit
         elif [ "${val}" = "-X" ]; then
             $JAVA_CMD -X
-            echo "(Prepend -J in front of these options when using 'jruby' command)" 
+            echo "(Prepend -J in front of these options when using 'swym' command)" 
             exit
         else
             if [ "${val:0:3}" = "-ea" ]; then
@@ -214,23 +209,13 @@ swym_args=("${swym_args[@]}" "$@")
 set -- "${swym_args[@]}"
 
 JAVA_OPTS="$JAVA_OPTS $JAVA_MEM $JAVA_STACK"
-JNA_OS="`uname -s | tr '[:upper:]' '[:lower:]'`"
-case "$JNA_OS" in
-darwin) JNA_PATH="$SWYM_HOME/lib/native/darwin";;
-  *) JNA_PATH="$SWYM_HOME/lib/native/${JNA_OS}-${JNA_CPU}:$SWYM_HOME/lib/native/${JNA_OS}-${JNA_ALT_CPU}";;
+JNI_OS="`uname -s | tr '[:upper:]' '[:lower:]'`"
+case "$JNI_OS" in
+darwin) JNI_PATH="$SWYM_HOME/lib/native/darwin";;
+  *) JNI_PATH="$SWYM_HOME/lib/native/${JNI_OS}-${JNI_CPU}:$SWYM_HOME/lib/native/${JNI_OS}-${JNI_ALT_CPU}";;
 esac
-#JAVA_OPTS="$JAVA_OPTS -Djna.boot.library.path=$JNA_PATH"
-JAVA_JNA="-Djna.boot.library.path=$JNA_PATH"
-
-JFFI_BOOT=""
-for d in $SWYM_HOME/lib/native/*`uname -s`; do
-  if [ -z "$JFFI_BOOT" ]; then
-    JFFI_BOOT="$d"
-  else
-    JFFI_BOOT="$JFFI_BOOT:$d"
-  fi
-done
-JFFI_OPTS="-Djffi.boot.library.path=$JFFI_BOOT"
+#JAVA_OPTS="$JAVA_OPTS -Djna.boot.library.path=$JNI_PATH"
+JAVA_JNI="-Djava.library.path=$JNI_PATH"
 
 if $cygwin; then
   SWYM_HOME=`cygpath --mixed "$SWYM_HOME"`
@@ -253,9 +238,9 @@ if [ "$VERIFY_SWYM" != "" ]; then
       echo "Running with instrumented profiler"
   fi
 
-  "$JAVA_CMD" $PROFILE_ARGS $JAVA_OPTS "$JAVA_JNA" "$JFFI_OPTS" "${java_args[@]}" -classpath "$SWYM_CP$CP_DELIMETER$CP$CP_DELIMETER$CLASSPATH" \
+  "$JAVA_CMD" $PROFILE_ARGS $JAVA_OPTS "$JAVA_JNI" "${java_args[@]}" -classpath "$SWYM_CP$CP_DELIMETER$CP$CP_DELIMETER$CLASSPATH" \
     "-Dswym.home=$SWYM_HOME" \
-    "-Dswym.lib=$SWYM_HOME/lib" -Djruby.script=jruby \
+    "-Dswym.lib=$SWYM_HOME/lib" -Dswym.script=swym \
     "-Dswym.shell=$SWYM_SHELL" \
     org.cascading.js.Main $SWYM_OPTS "$@"
 
@@ -276,9 +261,9 @@ if [ "$VERIFY_SWYM" != "" ]; then
 else
   if $cygwin; then
     # exec doed not work correctly with cygwin bash
-    "$JAVA_CMD" $JAVA_OPTS "$JAVA_JNA" "$JFFI_OPTS" "${java_args[@]}" -Xbootclasspath/a:"$SWYM_CP" -classpath "$CP$CP_DELIMETER$CLASSPATH" \
+    "$JAVA_CMD" $JAVA_OPTS "$JAVA_JNI" "${java_args[@]}" -Xbootclasspath/a:"$SWYM_CP" -classpath "$SWYM_CP$CP_DELIMETER$CP$CP_DELIMETER$CLASSPATH" \
       "-Dswym.home=$SWYM_HOME" \
-      "-Dswym.lib=$SWYM_HOME/lib" -Djruby.script=jruby \
+      "-Dswym.lib=$SWYM_HOME/lib" -Dswym.script=swym \
       "-Dswym.shell=$SWYM_SHELL" \
       org.cascading.js.Main $SWYM_OPTS "$@"
 
@@ -289,13 +274,13 @@ else
 
     exit $SWYM_STATUS
   else
-    exec "$JAVA_CMD" $JAVA_OPTS "$JAVA_JNA" "$JFFI_OPTS" "${java_args[@]}" -Xbootclasspath/a:"$SWYM_CP" -classpath "$CP$CP_DELIMETER$CLASSPATH" \
+    exec "$JAVA_CMD" $JAVA_OPTS "$JAVA_JNI" "${java_args[@]}" -classpath "$SWYM_CP$CP_DELIMETER$CP$CP_DELIMETER$CLASSPATH" \
       "-Dswym.home=$SWYM_HOME" \
-      "-Dswym.lib=$SWYM_HOME/lib" -Djruby.script=jruby \
+      "-Dswym.lib=$SWYM_HOME/lib" -Dswym.script=swym \
       "-Dswym.shell=$SWYM_SHELL" \
       org.cascading.js.Main $SWYM_OPTS "$@"
   fi
 fi
 
 # Be careful adding code down here, you might override the exit
-# status of the jruby invocation.
+# status of the swym invocation.

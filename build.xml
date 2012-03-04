@@ -1,28 +1,28 @@
 <?xml version="1.0"?>
 
-<project name="cascading" default="compile" basedir="." xmlns:ivy="antlib:org.apache.ivy.ant">
+<project name="swym" default="compile" basedir="." xmlns:ivy="antlib:org.apache.ivy.ant">
 
-  <dirname property="cascading.basedir" file="${ant.file.cascading}"/>
+  <dirname property="swym.basedir" file="${ant.file.swym}"/>
 
   <property name="test.haltonerror" value="true"/>
 
-  <property name="src" location="${cascading.basedir}/src/java"/>
-  <property name="src.test" location="${cascading.basedir}/test/java"/>
+  <property name="src" location="${swym.basedir}/src/java"/>
+  <property name="src.test" location="${swym.basedir}/test/java"/>
 
-  <property name="build" location="${cascading.basedir}/build/java"/>
-  <property name="build.test" location="${cascading.basedir}/build/java/test"/>
+  <property name="build" location="${swym.basedir}/build/java"/>
+  <property name="build.test" location="${swym.basedir}/build/java/test"/>
   <property name="build.classes" location="${build}/java/java"/>
 
   <property name="test.results" location="${build}/testresults"/>
   <property name="test.showoutput" value="yes"/>
 
-  <property name="lib" location="${cascading.basedir}/lib/java"/>
-  <property name="lib.jav8" location="${lib}/../jav8"/>
-  <property name="dist" location="${cascading.basedir}/dist"/>
-  <property name="javadoc" location="${cascading.basedir}/javadoc"/>
-  <property name="log" location="${cascading.basedir}/log"/>
+  <property name="lib" location="${swym.basedir}/lib/java"/>
+  <property name="lib.native" location="${swym.basedir}/lib/native/darwin"/>
+  <property name="dist" location="${swym.basedir}/dist"/>
+  <property name="javadoc" location="${swym.basedir}/javadoc"/>
+  <property name="log" location="${swym.basedir}/log"/>
 
-  <property name="jar.cascading" value="cascadingjs-0.1.jar"/>
+  <property name="jar.swym" value="swym-0.1.jar"/>
 
   <path id="build.class.path">
     <pathelement location="${build}"/>
@@ -31,7 +31,7 @@
 
   <path id="jars.class.path">
     <fileset dir="${build}" erroronmissingdir="false">
-      <include name="cascading*.jar"/>
+      <include name="swym*.jar"/>
     </fileset>
   </path>
 
@@ -92,14 +92,14 @@
   </target>
 
   <!--target name="javadoc" depends="init">
-    <echo message="creating cascading javadoc..."/>
+    <echo message="creating swym javadoc..."/>
     <delete dir="${javadoc}"/>
     <mkdir dir="${javadoc}"/>
 
     <javadoc sourcepathref="javadoc.src.path"
              destdir="${javadoc}"
-             packagenames="cascading.*"
-             windowtitle="Cascading ${cascading.release.major}">
+             packagenames="swym.*"
+             windowtitle="swym ${swym.release.major}">
       <classpath refid="project.class.path"/>
       <link href="http://java.sun.com/javase/6/docs/api/"/>
       <link href="http://dist.codehaus.org/janino/javadoc/"/>
@@ -110,7 +110,7 @@
 
   <target name="testjs" depends="init, compile">
     <java classname="org.cascading.js.JsTestRunner" fork="true">
-      <sysproperty key="java.library.path" value="${lib.jav8}"/>
+      <sysproperty key="java.library.path" value="${lib.native}"/>
 
       <arg value="/js/cascading-test/builder.js"></arg>
 
@@ -129,7 +129,7 @@
            maxmemory="756m">
 
       <sysproperty key="hadoop.log.dir" value="build/test/log"/>
-      <sysproperty key="java.library.path" value="${lib.jav8}"/>
+      <sysproperty key="java.library.path" value="${lib.native}"/>
 
       <!--<jvmarg value="-Xdebug"/>--><!--<jvmarg value="-Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=5005"/>-->
 
@@ -156,14 +156,14 @@
   <!-- jar build -->
   <target name="jar" depends="compile">
 
-    <delete file="${build}/${jar.cascading}"/>
+    <delete file="${build}/${jar.swym}"/>
     <delete dir="${build.core}/lib"/>
 
     <manifest file="${build}/MANIFEST.MF">
       <attribute name="Built-By" value="${user.name}"/>
     </manifest>
 
-    <jar jarfile="${build}/${jar.cascading}" manifest="${build}/MANIFEST.MF" compress="yes">
+    <jar jarfile="${build}/${jar.swym}" manifest="${build}/MANIFEST.MF" compress="yes">
       <fileset dir="${build}"/>
     </jar>
 

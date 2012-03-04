@@ -6,9 +6,9 @@ import javax.script.ScriptException;
 import java.io.IOException;
 
 public class Main {
-    public static void main(String[] args) throws ScriptException, IOException {
+    public static void main(String[] args) throws ScriptException, IOException, InterruptedException {
         final Environment env = new Environment();
-        env.start(new Environment.EnvironmentArgs("jobs" + args[0], true));
+        env.start(new Environment.EnvironmentArgs(args[1], true));
         env.shutdown();
     }
 }
