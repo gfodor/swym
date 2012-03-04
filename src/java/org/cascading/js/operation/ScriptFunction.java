@@ -68,7 +68,7 @@ public class ScriptFunction extends BaseOperation<V8OperationContext> implements
             }
 
             env.invokeMethod(ctx.getV8PipeClass(), "process_tuples",
-                    pipeId, "default", bufferArray, ctx.bufferCount(), this, call);
+                    pipeId, bufferArray, ctx.bufferCount(), this, call);
 
             ctx.clearBuffer();
         } catch (ScriptException e) {

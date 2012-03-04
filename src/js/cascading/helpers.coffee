@@ -91,3 +91,7 @@ define ["./components", "./schemes"], (components, schemes) ->
   EveryPipes:
     count: ->
 
+  Schemes:
+    text_line_scheme: (fields...) ->
+      new schemes.TextLine(fields...)
+

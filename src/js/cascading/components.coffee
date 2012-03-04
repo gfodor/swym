@@ -97,12 +97,12 @@ define ["underscore"], (_) ->
           new Pipe(this, name, parent.tail_pipe)
 
       current_each: ->
-        @last_each_pipe ?= this.add_pipe(new Each(this))
+        @last_each_pipe ?= new Each(this)
 
       add_pipe: (pipe) ->
         @last_each_pipe = pipe if pipe.is_each?
 
-        unless @tail_pipe
+        unless @tail_pipe?
           @head_pipe = pipe
           pipe.connect_to_incoming(@source.outgoing)
         else
@@ -126,23 +126,24 @@ define ["underscore"], (_) ->
         this.pipes[pipe.pipe_id] = pipe
 
       @process_tuples: (pipe_id, in_buffer, in_buffer_length, operation, call) =>
-        processor = this.pipes[pipe_id].processor
+        pipe = this.pipes[pipe_id]
+        processor = pipe.processor
 
         buffer_flush_size = 8 * 1024
         out_buffer = new Array(buffer_flush_size + 256)
         out_buffer_length = 0
-        argument_selector_length = @argument_selector.length
+        num_fields = pipe.incoming.length
 
         flush ?= operation.flushFromV8
         tuple = {}
 
-        for i_tuple in [0...in_buffer_length / argument_selector_length]
-          for i_field in [0...argument_selector_length]
-            idx = (i_tuple * argument_selector_length) + i_field
-            tuple[@argument_selector[i_field]] = in_buffer
+        for i_tuple in [0...in_buffer_length / num_fields]
+          for i_field in [0...num_fields]
+            idx = (i_tuple * num_fields) + i_field
+            tuple[pipe.incoming[i_field]] = in_buffer[idx]
 
           processor tuple, (t) =>
-            for field in @result_fields
+            for field in pipe.outgoing
               out_buffer[out_buffer_length] = t[field] ? null
               out_buffer_length += 1
 
@@ -150,12 +151,12 @@ define ["underscore"], (_) ->
               flush.apply(operation, [out_buffer, out_buffer_length, call])
               out_buffer_length = 0
 
-          flush.apply(operation, [out_buffer, out_buffer_length, call])
+        flush.apply(operation, [out_buffer, out_buffer_length, call])
 
       is_pipe: true
 
-      constructor: (assembly, @name, @parent_pipe) ->
-        @parent_pipe ?= null
+      constructor: (assembly, @name, parent_pipe) ->
+        @parent_pipe ?= parent_pipe
         Pipe.register_pipe(this)
         assembly.add_pipe(this)
 
@@ -166,9 +167,9 @@ define ["underscore"], (_) ->
         parent_jpipe = @parent_pipe?.to_java()
 
         if parent_jpipe?
-          Cascading.Factory.Pipe(@name, parent_jpipe)
+          out = Cascading.Factory.Pipe(@name, parent_jpipe)
         else
-          Cascading.Factory.Pipe(@name)
+          out = Cascading.Factory.Pipe(@name)
 
   Each:
     class Each extends Pipe
@@ -226,9 +227,8 @@ define ["underscore"], (_) ->
           functions[0] tuple, get_writer(0, receiver)
 
       to_java: (parent_pipe) ->
-        if @type == EachTypes.GENERATOR
-          parent_jpipe = @parent_pipe?.to_java()
-          Cascading.Factory.Each(@argument_selector, @result_fields, Cascading.EnvironmentArgs, @pipe_id, parent_jpipe)
+        parent_jpipe = @parent_pipe?.to_java()
+        Cascading.Factory.Each(@incoming, @outgoing, Cascading.EnvironmentArgs, @pipe_id, parent_jpipe)
 
   Every:
     class Every extends Pipe
@@ -256,6 +256,10 @@ define ["underscore"], (_) ->
       connect_to_incoming: (incoming) ->
         @incoming = incoming
         @outgoing = @incoming.slice(0)
+
+        for k, v of @spec
+          if k isnt "add" and k isnt "remove"
+            throw new Error("Invalid argument #{k} for field spec")
 
         if @spec.add?
           for field in @spec.add

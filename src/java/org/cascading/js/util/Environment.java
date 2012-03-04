@@ -12,20 +12,29 @@ import java.io.Serializable;
 
 public class Environment {
     public static class EnvironmentArgs implements Serializable {
-        private String script;
-        private boolean loadTestFramework;
+        public enum Mode {
+            SPECS,
+            JOB,
+        }
 
-        public EnvironmentArgs(String script, boolean loadTestFramework) {
+        private String script;
+        private Mode mode;
+
+        public EnvironmentArgs(String script, Mode mode) {
             this.script = script;
-            this.loadTestFramework = loadTestFramework;
+            this.mode = mode;
         }
 
         public String getScript() {
             return script;
         }
 
+        public boolean isJob() {
+            return mode == Mode.JOB;
+        }
+
         public boolean isLoadTestFramework() {
-            return loadTestFramework;
+            return mode == Mode.SPECS;
         }
     }
 
@@ -47,13 +56,16 @@ public class Environment {
         shell.evaluateScript("Cascading.EnvironmentArgs = _dummy;");
         shell.evaluateScript("delete _dummy;");
 
-        if (args.loadTestFramework) {
+        if (args.isLoadTestFramework()) {
             shell.evaluateScript(FileUtils.readFileToString(new File("lib/js/jasmine.js")));
-        } 
+        } else if (args.isJob()) {
+            shell.evaluateScript("var job = function(f) { require({ baseUrl: 'lib/js' }); " +
+                                 "require([\"cascading/builder\", \"cascading/schemes\"], function (b) { return b.cascade(f).to_java(); }); };");
+        }
 
         shell.evaluateScript(FileUtils.readFileToString(new File("lib/js/r.js")), new String[] { args.script });
 
-        if (args.loadTestFramework) {
+        if (args.isLoadTestFramework()) {
             shell.evaluateScript(FileUtils.readFileToString(new File("lib/js/cascading-test/execute.js")));
         }
     }

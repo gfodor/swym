@@ -1,18 +1,17 @@
-require ["org/cascading/js/builder"], (builder) ->
-  word_generator = (tuple, emitter) ->
-    emitter({ word: word }) for words in tuple.line.match(/\S+/)
-    null
+#require( { baseUrl: '../../lib/js' } )
 
-  builder.cascade ($) ->
-    $.flow 'word count', ->
-      $.source 'input', $.tap("test.txt", scheme.TEXT)
+job ($) ->
+  $.flow 'word count', ->
+    $.source 'input', $.tap("data/listings.txt", $.text_line_scheme("offset", "line"))
 
-      $.assembly 'input', ->
-        $.each word_generator
-        $.insert capitalized: (tuple) ->
-          tuple.word.toUpperCase()
+    assembly = $.assembly 'input', ->
+      $.map { add: ["word"], remove: ["line", "offset"] }, (tuple, writer) ->
+        for word in tuple.line.match(/\S+/g)
+          writer({ word: word })
 
-        $.group_by 'capitalized', ->
-          $.count 'count'
+      $.map { }, (tuple, writer) -> tuple.word = tuple.word.toUpperCase() ; writer(tuple)
+      $.map { add: ["foo"] }, (tuple, writer) ->
+        tuple.foo = "hi"
+        writer(tuple)
 
-      $.sink 'input', $.tap("count.txt", scheme.TEXT)
+    $.sink 'input', $.tap("output", $.text_line_scheme("word", "foo"))

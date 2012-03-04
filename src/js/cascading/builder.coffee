@@ -1,5 +1,6 @@
 define ["./components", "./schemes", "./helpers", "./common"], (components, schemes, helpers, common) ->
   class Builder extends common.Module
+    @include helpers.Schemes
     @include helpers.Components
     @include helpers.EachPipes
     @include helpers.EveryPipes

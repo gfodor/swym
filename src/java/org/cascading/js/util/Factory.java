@@ -45,7 +45,12 @@ public class Factory {
     }
 
     public Pipe Each(V8Array argumentSelector, V8Array resultFields, Environment.EnvironmentArgs args, Integer pipeId, Pipe parent) {
-        return new Each(parent, asFields(argumentSelector), new ScriptFunction(asFields(argumentSelector), asFields(resultFields), args, pipeId), Fields.RESULTS);
+        try {
+            return new Each(parent, asFields(argumentSelector), new ScriptFunction(asFields(argumentSelector), asFields(resultFields), args, pipeId), Fields.RESULTS);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     public Flow Flow(String name, V8Object v8Sources, V8Object v8Sinks, V8Array v8TailPipes) {
