@@ -1,23 +1,23 @@
 job ($, _) ->
   $.flow 'word count', ->
-    $.source 'input', $.tap("data/listings.txt", $.text_line_scheme("offset", "line"))
+    $.source 'input', $.tap("wordlist.txt", $.text_line_scheme("offset", "word"))
 
     assembly = $.assembly 'input', ->
-      $.map { add: ["word", "word2"], remove: ["line", "offset"] }, (tuple, writer) ->
-        for word in tuple.line.match(/\S+/g)
-          writer({ word: word, word2: word + (Math.floor(Math.random(100000000))) })
+      #$.map { add: ["word", "word2"], remove: ["line", "offset"] }, (tuple, writer) ->
+      #  for word in tuple.line.match(/\S+/g)
+      #    writer({ word: word })
 
       last_key = null
       count = 0
 
       $.foreach_group ["word"], { add: ["count"] },
-        ((keys, values, writer) ->
-          if last_key isnt keys.word
-            last_key = keys.word
+        ((tuple, writer) ->
+          if last_key isnt tuple.word
+            last_key = tuple.word
             count = 0
 
           count += 1),
-        ((keys, writer) ->
+        ((writer) ->
           writer({ count: count }))
 
         #$.aggregate "count", (keys, values, context) ->
@@ -36,4 +36,4 @@ job ($, _) ->
         #    context[0] / context[1])
 
 
-    $.sink 'input', $.tap("output", $.text_line_scheme("word", "word2"))
+    $.sink 'input', $.tap("output", $.text_line_scheme("word", "count"))

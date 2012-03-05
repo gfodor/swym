@@ -2,8 +2,13 @@ package org.cascading.js.util;
 
 import cascading.flow.Flow;
 import cascading.flow.FlowConnector;
+import cascading.operation.Buffer;
+import cascading.operation.Identity;
 import cascading.pipe.Each;
+import cascading.pipe.Every;
+import cascading.pipe.GroupBy;
 import cascading.pipe.Pipe;
+import cascading.pipe.assembly.Rename;
 import cascading.scheme.Scheme;
 import cascading.scheme.TextLine;
 import cascading.tap.Hfs;
@@ -11,6 +16,7 @@ import cascading.tap.Tap;
 import cascading.tuple.Fields;
 import lu.flier.script.V8Array;
 import lu.flier.script.V8Object;
+import org.cascading.js.operation.ScriptBuffer;
 import org.cascading.js.operation.ScriptFunction;
 
 import java.util.HashMap;
@@ -47,6 +53,42 @@ public class Factory {
     public Pipe Each(V8Array argumentSelector, V8Array resultFields, Environment.EnvironmentArgs args, Integer pipeId, Pipe parent) {
         try {
             return new Each(parent, asFields(argumentSelector), new ScriptFunction(asFields(argumentSelector), asFields(resultFields), args, pipeId), Fields.RESULTS);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public Pipe GroupByBuffer(V8Array groupingFields, V8Array sortFields, V8Array incoming, V8Array outgoing, Environment.EnvironmentArgs args, Integer pipeId, Pipe parent) {
+        try {
+            Fields groupingFieldsFields = asFields(groupingFields);
+
+            Fields stubFields = new Fields();
+
+            // Create stub fields to pass through grouping key so buffering works.
+            for (int i = 0; i < groupingFieldsFields.size(); i++) {
+                stubFields = stubFields.append(new Fields(ScriptBuffer.STUB_FIELD_PREFIX + i));
+            }
+
+            GroupBy groupBy = new GroupBy(parent, asFields(groupingFields), asFields(sortFields));
+            Buffer buffer = new ScriptBuffer(asFields(groupingFields), asFields(incoming), asFields(outgoing).subtract(groupingFieldsFields).append(stubFields), args, pipeId);
+            Pipe prev = new Every(groupBy, asFields(incoming), buffer, asFields(outgoing).append(stubFields));
+
+            Fields currentFields = asFields(outgoing).append(stubFields);
+
+            // Remove grouping fields
+            for (int i = 0; i < groupingFieldsFields.size(); i++) {
+                Fields newFields = currentFields.subtract(new Fields(groupingFieldsFields.get(i)));
+                prev = new Each(prev, newFields, new Identity(), Fields.RESULTS);
+                currentFields = newFields;
+            }
+
+            // Rename stub fields back to grouping key fields.
+            for (int i = 0; i < groupingFieldsFields.size(); i++) {
+               prev = new Rename(prev, new Fields(ScriptBuffer.STUB_FIELD_PREFIX + i), new Fields(groupingFieldsFields.get(i)));
+            }
+
+            return prev;
         } catch (Exception e) {
             e.printStackTrace();
             return null;

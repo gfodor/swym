@@ -47,8 +47,7 @@ define ["./components", "./schemes"], (components, schemes) ->
       if typeof(fields) == "string"
         fields = [fields]
 
-      @current_group_by = new components.GroupBy(fields, params)
-      this.current_assembly().add_pipe(@current_group_by)
+      @current_group_by = new components.GroupBy(this.current_assembly(), fields, params)
       f()
       @current_group_by = null
 
@@ -56,8 +55,7 @@ define ["./components", "./schemes"], (components, schemes) ->
       if typeof(fields) == "string"
         fields = [fields]
 
-      group_by = new components.GroupBy(fields, params, processor, finalizer)
-      this.current_assembly().add_pipe(group_by)
+      new components.GroupBy(this.current_assembly(), fields, params, processor, finalizer)
 
     is_in_group_by: ->
       @current_group_by?
@@ -78,18 +76,6 @@ define ["./components", "./schemes"], (components, schemes) ->
               out = {}
               out[n] = v
               emitter(out))()
-
-    generator: (argument_selector, result_fields, callback) ->
-      throw new Error("Cannot define map pipe inside of group by") if this.is_in_group_by()
-      pipe = new components.Each(components.EachTypes.GENERATOR, callback, argument_selector, result_fields)
-      this.current_assembly().add_pipe(pipe)
-      pipe
-
-    filter: (callback) ->
-      throw new Error("Cannot define filter pipe inside of group by") if this.is_in_group_by()
-      pipe = new components.Each(components.EachTypes.FILTER, callback)
-      this.current_assembly().add_pipe(pipe)
-      pipe
 
     map: (spec, callback) ->
       each = this.current_assembly().current_each()

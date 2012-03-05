@@ -50,6 +50,8 @@ require { baseUrl: "lib/js" }, ["cascading/builder", "cascading/schemes", "under
         expect(a2.head_pipe.incoming).toEqual ["line_2"]
 
     it "should fail if no sinks", ->
+    it "should verify arity of map function", ->
+    it "should verify arity of foreach_group function", ->
     it "should fail if no assembly for sink", ->
     it "should fail if duplicate assembly", ->
       expect_bad_flow "Duplicate assembly input", ($) ->
@@ -152,3 +154,27 @@ require { baseUrl: "lib/js" }, ["cascading/builder", "cascading/schemes", "under
           expect(output[1].line).toBeUndefined()
           expect(output[1].word).toEqual("WORLD")
           expect(output[1].word_copy).toEqual("WORLD")
+
+    it "should raise error if grouping fields are invalid", ->
+    it "should raise error if sorting fields are invalid", ->
+    it "should raise error if grouping fields contains duplicates", ->
+
+    it "should connect foreach_group correctly", ->
+      with_test_flow ($) ->
+        $.source 'input', $.tap("listings.txt", $.text_line_scheme("offset", "line"))
+
+        pipe = null
+        first = null
+
+        $.assembly 'input', ->
+          first = $.map { add: ["word"], remove: ["line"] }, (tuple, writer) ->
+          pipe = $.foreach_group ["word"], { add: ["count"] },
+            ((keys, values, writer) ->),
+            ((keys, writer) -> )
+
+        expect(pipe.is_group_by?).toEqual(true)
+        expect(pipe.incoming.length).toEqual(2)
+        expect(pipe.outgoing.length).toEqual(2)
+        expect(pipe.outgoing[0]).toEqual("word")
+        expect(pipe.outgoing[1]).toEqual("count")
+        expect(pipe.parent_pipe.pipe_id).toEqual(first.each.pipe_id)

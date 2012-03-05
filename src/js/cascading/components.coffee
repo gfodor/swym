@@ -125,31 +125,70 @@ define ["underscore"], (_) ->
         this.pipes ?= {}
         this.pipes[pipe.pipe_id] = pipe
 
-      @process_tuples: (pipe_id, in_buffer, in_buffer_length, operation, call) =>
+      @process_tuples: (pipe_id, in_buffer, in_buffer_length, operation, call, delimiter, terminator) =>
         pipe = this.pipes[pipe_id]
         processor = pipe.processor
+        finalizer = pipe.finalizer
 
         buffer_flush_size = 8 * 1024
         out_buffer = new Array(buffer_flush_size + 256)
         out_buffer_length = 0
         num_fields = pipe.incoming.length
+        buffer_padding = 0
 
         flush ?= operation.flushFromV8
+
         tuple = {}
+        tuple_length = 0
 
-        for i_tuple in [0...in_buffer_length / num_fields]
-          for i_field in [0...num_fields]
-            idx = (i_tuple * num_fields) + i_field
-            tuple[pipe.incoming[i_field]] = in_buffer[idx]
+        group_fields = pipe.group_fields ? []
+        in_buffer_fields = _.difference(pipe.incoming, group_fields)
+        out_buffer_fields = _.difference(pipe.outgoing, group_fields)
+        is_group_by = pipe.is_group_by?
+        group_field_values = {}
 
-          processor tuple, (t) =>
-            for field in pipe.outgoing
-              out_buffer[out_buffer_length] = t[field] ? null
+        # callback function passed to processor and finalizer
+        writer = (t) =>
+          for field in out_buffer_fields
+            out_buffer[out_buffer_length] = t[field] ? null
+            out_buffer_length += 1
+
+          if is_group_by
+            for field, value of group_field_values
+              out_buffer[out_buffer_length] = value
               out_buffer_length += 1
 
-            if out_buffer_length >= buffer_flush_size
-              flush.apply(operation, [out_buffer, out_buffer_length, call])
-              out_buffer_length = 0
+          if out_buffer_length >= buffer_flush_size
+            flush.apply(operation, [out_buffer, out_buffer_length, call])
+            out_buffer_length = 0
+
+        for idx in [0...in_buffer_length]
+          entry = in_buffer[idx]
+
+          if is_group_by
+            if entry is delimiter
+              # Objects in buffer following delimiter are group field values.
+              idx += 1
+
+              for i_group_field in [0...group_fields.length]
+                group_field_values[group_fields[i_group_field]] = in_buffer[idx + i_group_field]
+
+              idx += group_fields.length - 1
+            else if entry is terminator
+              # End of a group has been reached, call finalizer
+              finalizer writer
+          else
+            tuple[in_buffer_fields[tuple_length]] = entry
+            tuple_length += 1
+
+            if tuple_length is in_buffer_fields.length
+              if is_group_by
+                for field, value of group_field_values
+                  tuple[field] = value
+
+              tuple_length = 0
+
+              processor tuple, writer
 
         flush.apply(operation, [out_buffer, out_buffer_length, call])
 
@@ -238,9 +277,29 @@ define ["underscore"], (_) ->
     class GroupBy extends Pipe
       is_group_by: true
 
-      constructor: (@group_fields, params, @processor, @finalizer) ->
+      constructor: (assembly, @group_fields, @spec, @processor, @finalizer) ->
+        super(assembly)
         throw new Error("Invalid group by fields #{@group_fields}") unless typeof(@group_fields) == "object"
-        @sort_fields = params?.sort_fields ? []
+        @sort_fields = @spec?.sort_fields ? []
+
+      connect_to_incoming: (incoming) ->
+        @incoming = incoming
+        @outgoing = @group_fields.slice(0)
+
+        for group_field in @group_fields
+          throw new Error("No such field #{group_field} in incoming") unless _.include(@incoming, group_field)
+
+        for k, v of @spec
+          if k isnt "add" and k isnt "sort"
+            throw new Error("Invalid argument #{k} for group by spec")
+
+        for add_field in @spec.add
+          @outgoing[@outgoing.length] = add_field
+
+      to_java: (parent_pipe) ->
+        parent_jpipe = @parent_pipe?.to_java()
+        Cascading.Factory.GroupByBuffer(@group_fields, @sort_fields, @incoming, @outgoing,
+                                        Cascading.EnvironmentArgs, @pipe_id, parent_jpipe)
 
   CoGroup:
     class CoGroup extends Pipe
