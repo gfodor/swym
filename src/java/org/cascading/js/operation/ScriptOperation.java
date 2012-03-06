@@ -124,9 +124,4 @@ public abstract class ScriptOperation extends BaseOperation<V8OperationContext> 
             }
         }
     }
-
-    public void cleanup(cascading.flow.FlowProcess flowProcess, cascading.operation.OperationCall<V8OperationContext> operationCall) {
-        flushToV8(operationCall);
-        operationCall.getContext().getEnvironment().shutdown();
-    }
 }

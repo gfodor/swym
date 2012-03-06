@@ -46,8 +46,7 @@ public class V8OperationContext {
         int numFields = fields.size();
 
         for (int i = 0; i < numFields; i++) {
-            buffer[bufferCount] = entry.get(fields.getPos(fields.get(i)));
-            bufferCount++;
+            addObjectToBuffer(entry.get(fields.getPos(fields.get(i))));
         }
     }
 

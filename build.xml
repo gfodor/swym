@@ -10,7 +10,7 @@
   <property name="src.test" location="${swym.basedir}/test/java"/>
 
   <property name="build" location="${swym.basedir}/build/java"/>
-  <property name="build.test" location="${swym.basedir}/build/java/test"/>
+  <property name="build.test" location="${swym.basedir}/build/java"/>
   <property name="build.classes" location="${build}/java/java"/>
 
   <property name="test.results" location="${build}/testresults"/>

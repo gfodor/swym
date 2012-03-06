@@ -22,5 +22,10 @@ public class ScriptFunction extends ScriptOperation implements Function<V8Operat
             flushToV8(call);
         }
     }
+
+    public void cleanup(cascading.flow.FlowProcess flowProcess, cascading.operation.OperationCall<V8OperationContext> operationCall) {
+        flushToV8(operationCall);
+        operationCall.getContext().getEnvironment().shutdown();
+    }
 }
 
