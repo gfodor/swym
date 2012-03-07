@@ -53,6 +53,9 @@ public class V8TupleBuffer {
     final int[] groupTupleOffsets = new int[BUFFER_SIZE];
     int groupTupleCount = 0;
 
+    // Boolean null bitmasks
+    final boolean[][] nullMasks = new boolean[Set.values().length][];
+
     // Sparse matrices of [Set][Field Offset][Tuple Offset]
     // Deepest entries only filled in for field offsets that are known for this type.
     final int[][][] intData = new int[Set.values().length][][];
@@ -72,6 +75,8 @@ public class V8TupleBuffer {
     final private V8Array argFieldTypeArray;
     final private V8Array groupFieldTypeArray;
     final private V8Array groupTupleOffsetArray;
+    final private V8Array argNullMask;
+    final private V8Array groupNullMask;
 
     // Cached V8Arrays Set, Field offset
     private final V8Array[][] v8DataArrays = new V8Array[Set.values().length][];
@@ -86,11 +91,11 @@ public class V8TupleBuffer {
         fieldTypes[Set.GROUP.idx] = new int[groupingFields.size()];
         fieldTypeCounts[Set.ARGS.idx] = new int[Type.values().length];
         fieldTypeCounts[Set.GROUP.idx] = new int[Type.values().length];
+        nullMasks[Set.ARGS.idx] = new boolean[argumentFields.size() * BUFFER_SIZE];
+        nullMasks[Set.GROUP.idx] = new boolean[groupingFields.size() * BUFFER_SIZE];
 
         Arrays.fill(fieldTypes[Set.ARGS.idx], Type.UNKNOWN.idx);
         Arrays.fill(fieldTypes[Set.GROUP.idx], Type.UNKNOWN.idx);
-        Arrays.fill(fieldTypeCounts[Set.ARGS.idx], 0);
-        Arrays.fill(fieldTypeCounts[Set.GROUP.idx], 0);
 
         fieldOffsets[Set.ARGS.idx] = new int[argumentFields.size()];
         fieldOffsets[Set.GROUP.idx] = new int[groupingFields.size()];
@@ -106,6 +111,8 @@ public class V8TupleBuffer {
         argFieldTypeArray = eng.createArray(fieldTypes[Set.ARGS.idx]);
         groupFieldTypeArray = eng.createArray(fieldTypes[Set.GROUP.idx]);
         groupTupleOffsetArray = eng.createArray(groupTupleOffsets);
+        argNullMask = eng.createArray(nullMasks[Set.ARGS.idx]);
+        groupNullMask = eng.createArray(nullMasks[Set.GROUP.idx]);
     }
 
     public void addGroup(final TupleEntry group) {
@@ -142,6 +149,8 @@ public class V8TupleBuffer {
 
     public void clear() {
         java.util.Arrays.fill(groupTupleOffsets, 0);
+        java.util.Arrays.fill(nullMasks[Set.ARGS.idx], false);
+        java.util.Arrays.fill(nullMasks[Set.GROUP.idx], false);
         currentTupleOffset = 0;
         groupTupleCount = 0;
     }
@@ -150,6 +159,8 @@ public class V8TupleBuffer {
         argFieldTypeArray.setElements(fieldTypes[Set.ARGS.idx]);
         groupFieldTypeArray.setElements(fieldTypes[Set.GROUP.idx]);
         groupTupleOffsetArray.setElements(groupTupleOffsets);
+        argNullMask.setElements(nullMasks[Set.ARGS.idx]);
+        groupNullMask.setElements(nullMasks[Set.GROUP.idx]);
 
         final V8Array groupIntData = getV8DataArrays(eng, Set.GROUP, Type.INT);
         final V8Array groupLongData = getV8DataArrays(eng, Set.GROUP, Type.LONG);
@@ -168,9 +179,11 @@ public class V8TupleBuffer {
         if (packageArray == null) {
             packageArray = eng.createArray(
                     new V8Array[] {
-                            argFieldTypeArray,
-                            groupFieldTypeArray,
                             groupTupleOffsetArray,
+                            groupFieldTypeArray,
+                            groupNullMask,
+                            argFieldTypeArray,
+                            argNullMask,
                             groupIntData,
                             groupLongData,
                             groupDoubleData,
@@ -198,6 +211,7 @@ public class V8TupleBuffer {
         final double[][] doubleData = this.doubleData[set.idx];
         final Date[][] dateData = this.dateData[set.idx];
         final String[][] stringData = this.stringData[set.idx];
+        final boolean[] nullMask = this.nullMasks[set.idx];
 
         final int numFields = fieldOffsets.length;
 
@@ -208,7 +222,7 @@ public class V8TupleBuffer {
             final Object val = entry.get(fieldOffsets[i]);
 
             if (val == null)  {
-                // TODO flip bit somehow?
+                nullMask[currentTupleOffset + i] = true;
                 continue;
             }
 
