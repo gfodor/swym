@@ -108,7 +108,7 @@ public class V8TupleBuffer {
         groupTupleOffsetArray = eng.createArray(groupTupleOffsets);
     }
 
-    public void addGroup(TupleEntry group) {
+    public void addGroup(final TupleEntry group) {
         if (!allFieldsKnown) {
             updateFieldMeta(Set.GROUP, group);
             updateAllFieldsKnown();
@@ -121,7 +121,7 @@ public class V8TupleBuffer {
         groupTupleCount += 1;
     }
 
-    public void addArgument(TupleEntry args) {
+    public void addArgument(final TupleEntry args) {
         if (!allFieldsKnown) {
             updateFieldMeta(Set.ARGS, args);
             updateAllFieldsKnown();
@@ -146,7 +146,7 @@ public class V8TupleBuffer {
         groupTupleCount = 0;
     }
 
-    public V8Array getPackage(V8ScriptEngine eng) {
+    public V8Array getPackage(final V8ScriptEngine eng) {
         argFieldTypeArray.setElements(fieldTypes[Set.ARGS.idx]);
         groupFieldTypeArray.setElements(fieldTypes[Set.GROUP.idx]);
         groupTupleOffsetArray.setElements(groupTupleOffsets);
@@ -189,14 +189,23 @@ public class V8TupleBuffer {
         return packageArray;
     }
 
-    private void addData(Set set, TupleEntry entry) {
+    private void addData(final Set set, final TupleEntry entry) {
         final int[] fieldOffsets = this.fieldOffsets[set.idx];
+        final int[] fieldTypes  = this.fieldTypes[set.idx];
+        final int[][] intData = this.intData[set.idx];
+        final long[][] longData = this.longData[set.idx];
+        final boolean[][] boolData = this.boolData[set.idx];
+        final double[][] doubleData = this.doubleData[set.idx];
+        final Date[][] dateData = this.dateData[set.idx];
+        final String[][] stringData = this.stringData[set.idx];
 
-        for (int i = 0; i < fieldOffsets.length; i++) {
-            int jsType = fieldTypes[set.idx][i];
+        final int numFields = fieldOffsets.length;
+
+        for (int i = 0; i < numFields; i++) {
+            final int jsType = fieldTypes[i];
             if (jsType == Type.UNKNOWN.idx) continue;
 
-            Object val = entry.get(fieldOffsets[i]);
+            final Object val = entry.get(fieldOffsets[i]);
 
             if (val == null)  {
                 // TODO flip bit somehow?
@@ -206,22 +215,22 @@ public class V8TupleBuffer {
             // Hacky, can't use .idx in switch
             switch (jsType) {
                 case 0: // INT
-                    intData[set.idx][i][currentTupleOffset] = ((Number)val).intValue();
+                    intData[i][currentTupleOffset] = ((Number)val).intValue();
                     break;
                 case 1: // LONG
-                    longData[set.idx][i][currentTupleOffset] = ((Number)val).longValue();
+                    longData[i][currentTupleOffset] = ((Number)val).longValue();
                     break;
                 case 2: // BOOL
-                    boolData[set.idx][i][currentTupleOffset] = (Boolean)val;
+                    boolData[i][currentTupleOffset] = (Boolean)val;
                     break;
                 case 3: // DOUBLE
-                    doubleData[set.idx][i][currentTupleOffset] = ((Number)val).doubleValue();
+                    doubleData[i][currentTupleOffset] = ((Number)val).doubleValue();
                     break;
                 case 4: // DATE
-                    dateData[set.idx][i][currentTupleOffset] = (Date)val;
+                    dateData[i][currentTupleOffset] = (Date)val;
                     break;
                 case 5: // STRING
-                    stringData[set.idx][i][currentTupleOffset] = (String)val;
+                    stringData[i][currentTupleOffset] = (String)val;
                     break;
             }
         }
@@ -232,7 +241,7 @@ public class V8TupleBuffer {
                          (numberOfFieldsKnown[Set.GROUP.idx] == fieldTypes[Set.GROUP.idx].length);
     }
 
-    private Type jsTypeForObject(Object obj) {
+    private Type jsTypeForObject(final Object obj) {
         if (obj instanceof Short || obj instanceof Integer) {
             return Type.INT;
         } else if (obj instanceof Long) {
@@ -250,19 +259,20 @@ public class V8TupleBuffer {
         throw new RuntimeException("Unsupported java class type: " + obj.getClass().getName());
     }
 
-    private void updateFieldMeta(Set set, TupleEntry entry) {
+    private void updateFieldMeta(final Set set, final TupleEntry entry) {
         int newFieldsAdded = 0;
         final int[] fieldOffsets = this.fieldOffsets[set.idx];
+        final int numFields = fieldOffsets.length;
+        final int[] fieldTypes = this.fieldTypes[set.idx];
 
-        for (int i = 0; i < fieldOffsets.length; i++) {
-            if (fieldTypes[set.idx][i] == Type.UNKNOWN.idx) continue;
+        for (int i = 0; i < numFields; i++) {
+            if (fieldTypes[i] == Type.UNKNOWN.idx) continue;
 
             Object val = entry.get(fieldOffsets[i]);
             if (val == null) continue;
 
             Type jsType = jsTypeForObject(val);
-            fieldTypes[set.idx][i] = jsType.idx;
-            fieldTypeCounts[set.idx][jsType.idx] += 1;
+            fieldTypes[i] = jsType.idx;
 
             switch (jsType) {
                 case INT:
@@ -293,7 +303,7 @@ public class V8TupleBuffer {
         }
     }
 
-    private V8Array getV8DataArrays(V8ScriptEngine eng, Set set, Type type) {
+    private V8Array getV8DataArrays(final V8ScriptEngine eng, final Set set, final Type type) {
         if (v8DataArrays[set.idx] == null) {
             v8DataArrays[set.idx] = new V8Array[fieldOffsets[set.idx].length];
             v8DataWrapperArrays[set.idx] = new V8Array[Type.values().length];
@@ -306,53 +316,63 @@ public class V8TupleBuffer {
             v8DataWrapperArrays[set.idx][type.idx] = wrapper;
         }
 
-        for (int i = 0; i < fieldOffsets[set.idx].length; i++) {
-            final int jsType = fieldTypes[set.idx][i];
+        final int numFields = fieldOffsets[set.idx].length;
+        final int[] fieldTypes = this.fieldTypes[set.idx];
+        final V8Array[] v8DataArrays = this.v8DataArrays[set.idx];
+        final int[][] intData = this.intData[set.idx];
+        final long[][] longData = this.longData[set.idx];
+        final boolean[][] boolData = this.boolData[set.idx];
+        final double[][] doubleData = this.doubleData[set.idx];
+        final Date[][] dateData = this.dateData[set.idx];
+        final String[][] stringData = this.stringData[set.idx];
+
+        for (int i = 0; i < numFields; i++) {
+            final int jsType = fieldTypes[i];
             if (jsType != type.idx) continue;
-            final V8Array arr = v8DataArrays[set.idx][i];
+            final V8Array arr = v8DataArrays[i];
 
             // Hacky, can't use .idx in switch
             switch (jsType) {
                 case 0: // INT
                     if (arr != null) {
-                        arr.setElements(intData[set.idx][i]);
+                        arr.setElements(intData[i]);
                     } else {
-                        wrapper.set(i, eng.createArray(intData[set.idx][i]));
+                        wrapper.set(i, eng.createArray(intData[i]));
                     }
                     break;
                 case 1: // LONG
                     if (arr != null) {
-                        arr.setElements(longData[set.idx][i]);
+                        arr.setElements(longData[i]);
                     } else {
-                        wrapper.set(i, eng.createArray(longData[set.idx][i]));
+                        wrapper.set(i, eng.createArray(longData[i]));
                     }
                     break;
                 case 2: // BOOL
                     if (arr != null) {
-                        arr.setElements(boolData[set.idx][i]);
+                        arr.setElements(boolData[i]);
                     } else {
-                        wrapper.set(i, eng.createArray(boolData[set.idx][i]));
+                        wrapper.set(i, eng.createArray(boolData[i]));
                     }
                     break;
                 case 3: // DOUBLE
                     if (arr != null) {
-                        arr.setElements(doubleData[set.idx][i]);
+                        arr.setElements(doubleData[i]);
                     } else {
-                        wrapper.set(i, eng.createArray(doubleData[set.idx][i]));
+                        wrapper.set(i, eng.createArray(doubleData[i]));
                     }
                     break;
                 case 4: // DATE
                     if (arr != null) {
-                        arr.setElements(dateData[set.idx][i]);
+                        arr.setElements(dateData[i]);
                     } else {
-                        wrapper.set(i, eng.createArray(dateData[set.idx][i]));
+                        wrapper.set(i, eng.createArray(dateData[i]));
                     }
                     break;
                 case 5: // STRING
                     if (arr != null) {
-                        arr.setElements(stringData[set.idx][i]);
+                        arr.setElements(stringData[i]);
                     } else {
-                        wrapper.set(i, eng.createArray(stringData[set.idx][i]));
+                        wrapper.set(i, eng.createArray(stringData[i]));
                     }
                     break;
             }
