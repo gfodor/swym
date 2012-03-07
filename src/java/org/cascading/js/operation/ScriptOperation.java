@@ -71,16 +71,26 @@ public abstract class ScriptOperation extends BaseOperation<V8OperationContext> 
         this.flushToV8(call, null, null);
     }
 
+    private long convertTime = 0;
+
+    public void cleanup(cascading.flow.FlowProcess flowProcess, cascading.operation.OperationCall<V8OperationContext> call) {
+        System.out.println("Convert time " + convertTime);
+    }
+
     protected void flushToV8(OperationCall<V8OperationContext> call, V8Object delimiter, V8Object terminator) {
         V8OperationContext ctx = call.getContext();
         Environment env = ctx.getEnvironment();
 
         try {
+            long t0 = System.currentTimeMillis();
+
             if (bufferArray == null) {
                 bufferArray = env.createArray(ctx.getBuffer());
             } else {
                 bufferArray.setElements(ctx.getBuffer());
             }
+
+            convertTime += System.currentTimeMillis() - t0;
 
             env.invokeMethod(ctx.getV8PipeClass(), "process_tuples",
                     pipeId, bufferArray, ctx.bufferCount(), this, call, delimiter, terminator);

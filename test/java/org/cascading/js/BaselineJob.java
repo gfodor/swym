@@ -25,7 +25,7 @@ public class BaselineJob {
     public void baselineTest() {
 // define source and sink Taps.
         Scheme sourceScheme = new TextLine(new Fields("word"));
-        Tap source = new Hfs(sourceScheme, "smallwordlist.txt");
+        Tap source = new Hfs(sourceScheme, "bigwordlist.txt");
 
         Scheme sinkScheme = new TextLine(new Fields("word", "count"));
         Tap sink = new Hfs(sinkScheme, "output", SinkMode.REPLACE);
@@ -37,7 +37,7 @@ public class BaselineJob {
         // For every Tuple group
         // count the number of occurrences of "word" and store result in
         // a field named "count"
-        Aggregator count = new Count( new Fields( "count" ) );
+        Aggregator count = new TempCount( new Fields( "count" ) );
         assembly = new Every( assembly, count );
 
 

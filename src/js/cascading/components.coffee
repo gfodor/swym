@@ -134,7 +134,6 @@ define ["underscore"], (_) ->
         out_buffer = new Array(buffer_flush_size + 256)
         out_buffer_length = 0
         num_fields = pipe.incoming.length
-        buffer_padding = 0
 
         flush ?= operation.flushFromV8
 
@@ -165,18 +164,19 @@ define ["underscore"], (_) ->
 
         for idx in [0...in_buffer_length]
           entry = in_buffer[idx]
+          is_terminator = is_group_by and entry is terminator
 
-          if is_group_by and entry is delimiter
-            # Objects in buffer following delimiter are group field values.
+          if is_group_by and (idx is 0 or is_terminator)
+            # End of a group has been reached, call finalizer
+            finalizer writer if is_terminator
+
+            # Objects in buffer following delimiter or terminator are group field values.
             idx += 1
 
             for i_group_field in [0...group_fields.length]
               group_field_values[group_fields[i_group_field]] = in_buffer[idx + i_group_field]
 
             idx += group_fields.length - 1
-          else if is_group_by and entry is terminator
-            # End of a group has been reached, call finalizer
-            finalizer writer
           else
             # Process next tuple field
             tuple[in_buffer_fields[tuple_length]] = entry

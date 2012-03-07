@@ -12,6 +12,10 @@ job ($, _) ->
 
       $.foreach_group ["word"], { add: ["count"] },
         ((tuple, writer) ->
+          if tuple.word isnt last_key
+            last_key = tuple.word
+            count = 0
+
           count += 1),
         ((writer) ->
           writer({ count: count }))

@@ -19,7 +19,7 @@ public class ScriptBuffer extends ScriptOperation implements Buffer<V8OperationC
     public static String STUB_FIELD_PREFIX = "___swym_stub_gk_";
 
     public ScriptBuffer(Fields groupingFields, Fields argumentSelector, Fields resultFields, Environment.EnvironmentArgs environmentArgs, int pipeId) {
-        super(argumentSelector.size() + groupingFields.size(), argumentSelector, resultFields, environmentArgs, pipeId);
+        super(argumentSelector.subtract(groupingFields).size() + groupingFields.size() + 1, argumentSelector, resultFields, environmentArgs, pipeId);
         this.bufferFields = argumentSelector.subtract(groupingFields);
 
         groupFieldOffsets = new int[groupingFields.size()];
@@ -46,8 +46,6 @@ public class ScriptBuffer extends ScriptOperation implements Buffer<V8OperationC
             terminator = ctx.getEnvironment().createObject();
         }
 
-        ctx.addObjectToBuffer(delimiter);
-
         Iterator<TupleEntry> arguments = call.getArgumentsIterator();
         TupleEntry group = call.getGroup();
 
@@ -64,7 +62,6 @@ public class ScriptBuffer extends ScriptOperation implements Buffer<V8OperationC
 
             if (ctx.bufferIsFull()) {
                 flushToV8(call, delimiter, terminator);
-                ctx.addObjectToBuffer(delimiter);
 
                 for (int groupFieldOffset : groupFieldOffsets) {
                     ctx.addObjectToBuffer(group.get(groupFieldOffset));
@@ -84,6 +81,8 @@ public class ScriptBuffer extends ScriptOperation implements Buffer<V8OperationC
     }
 
     public void cleanup(cascading.flow.FlowProcess flowProcess, cascading.operation.OperationCall<V8OperationContext> call) {
+        super.cleanup(flowProcess, call);
+
         call.getContext().addObjectToBuffer(terminator);
         flushToV8(call, delimiter, terminator);
         System.out.println("Buffer time: " + (System.currentTimeMillis() - t0));

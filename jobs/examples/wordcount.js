@@ -11,6 +11,10 @@
         return $.foreach_group(["word"], {
           add: ["count"]
         }, (function(tuple, writer) {
+          if (tuple.word !== last_key) {
+            last_key = tuple.word;
+            count = 0;
+          }
           return count += 1;
         }), (function(writer) {
           return writer({
