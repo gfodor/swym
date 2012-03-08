@@ -2,7 +2,7 @@ package org.cascading.js.util;
 
 import lu.flier.script.V8Array;
 import lu.flier.script.V8Object;
-import lu.flier.tools.shell.Shell;
+import lu.flier.script.V8ScriptEngine;
 import org.apache.commons.io.FileUtils;
 
 import javax.script.ScriptException;
@@ -63,7 +63,9 @@ public class Environment {
                                  "require([\"cascading/builder\", \"underscore\"], function (b, _) { return b.cascade(function($) { f($, _); }).to_java(); }); };");
         }
 
-        shell.evaluateScript(FileUtils.readFileToString(new File("lib/js/r.js")), new String[] { args.script });
+        if (args.script != null) {
+            shell.evaluateScript(FileUtils.readFileToString(new File("lib/js/r.js")), new String[] { args.script });
+        }
 
         if (args.isLoadTestFramework()) {
             shell.evaluateScript(FileUtils.readFileToString(new File("lib/js/cascading-test/execute.js")));
@@ -96,5 +98,9 @@ public class Environment {
 
     public V8Array createArray(Object[] elements) {
         return shell.createArray(elements);
+    }
+
+    public V8ScriptEngine getEngine() {
+        return shell.getEngine();
     }
 }

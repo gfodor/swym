@@ -49,12 +49,16 @@ public class V8TupleBuffer {
     boolean allFieldsKnown = false;
     final int[] numberOfFieldsKnown = new int[Set.values().length];
 
-    // Delimiter tuple offsets where groups change
-    final int[] groupTupleOffsets = new int[BUFFER_SIZE];
-    int groupTupleCount = 0;
+    // Encoded group sizes.
+    // If a group is of size one (very common) then it is run length encoded as [MAX_INT, # of groups of size one]
+    // otherwise we just add the group size.
+    final int[] groupSizesRLE = new int[BUFFER_SIZE * 2 + 2];
+    int groupSizesRLELength = 0;
+    int currentGroupSize = 0;
+    int groupCount;
 
     // Boolean null bitmasks
-    final boolean[][] nullMasks = new boolean[Set.values().length][];
+    final int[][] nullMasks = new int[Set.values().length][];
 
     // Sparse matrices of [Set][Field Offset][Tuple Offset]
     // Deepest entries only filled in for field offsets that are known for this type.
@@ -74,7 +78,7 @@ public class V8TupleBuffer {
     private V8Array packageArray;
     final private V8Array argFieldTypeArray;
     final private V8Array groupFieldTypeArray;
-    final private V8Array groupTupleOffsetArray;
+    final private V8Array groupSizesRLEArray;
     final private V8Array argNullMask;
     final private V8Array groupNullMask;
 
@@ -85,14 +89,12 @@ public class V8TupleBuffer {
     private final V8Array[][] v8DataWrapperArrays = new V8Array[Set.values().length][];
 
     public V8TupleBuffer(V8ScriptEngine eng, Fields groupingFields, Fields argumentFields) {
-        clear();
-
         fieldTypes[Set.ARGS.idx] = new int[argumentFields.size()];
         fieldTypes[Set.GROUP.idx] = new int[groupingFields.size()];
         fieldTypeCounts[Set.ARGS.idx] = new int[Type.values().length];
         fieldTypeCounts[Set.GROUP.idx] = new int[Type.values().length];
-        nullMasks[Set.ARGS.idx] = new boolean[argumentFields.size() * BUFFER_SIZE];
-        nullMasks[Set.GROUP.idx] = new boolean[groupingFields.size() * BUFFER_SIZE];
+        nullMasks[Set.ARGS.idx] = new int[argumentFields.size() * BUFFER_SIZE / 32];
+        nullMasks[Set.GROUP.idx] = new int[groupingFields.size() * BUFFER_SIZE / 32];
 
         Arrays.fill(fieldTypes[Set.ARGS.idx], Type.UNKNOWN.idx);
         Arrays.fill(fieldTypes[Set.GROUP.idx], Type.UNKNOWN.idx);
@@ -110,9 +112,59 @@ public class V8TupleBuffer {
 
         argFieldTypeArray = eng.createArray(fieldTypes[Set.ARGS.idx]);
         groupFieldTypeArray = eng.createArray(fieldTypes[Set.GROUP.idx]);
-        groupTupleOffsetArray = eng.createArray(groupTupleOffsets);
+        groupSizesRLEArray = eng.createArray(groupSizesRLE);
         argNullMask = eng.createArray(nullMasks[Set.ARGS.idx]);
         groupNullMask = eng.createArray(nullMasks[Set.GROUP.idx]);
+
+        // Initialize second layer of data arrays
+        intData[Set.GROUP.idx] = new int[groupingFields.size()][];
+        longData[Set.GROUP.idx] = new long[groupingFields.size()][];
+        boolData[Set.GROUP.idx] = new boolean[groupingFields.size()][];
+        doubleData[Set.GROUP.idx] = new double[groupingFields.size()][];
+        dateData[Set.GROUP.idx] = new Date[groupingFields.size()][];
+        stringData[Set.GROUP.idx] = new String[groupingFields.size()][];
+
+        intData[Set.ARGS.idx] = new int[argumentFields.size()][];
+        longData[Set.ARGS.idx] = new long[argumentFields.size()][];
+        boolData[Set.ARGS.idx] = new boolean[argumentFields.size()][];
+        doubleData[Set.ARGS.idx] = new double[argumentFields.size()][];
+        dateData[Set.ARGS.idx] = new Date[argumentFields.size()][];
+        stringData[Set.ARGS.idx] = new String[argumentFields.size()][];
+
+        clear();
+    }
+
+    public void closeGroup() {
+        if (currentGroupSize > 0) {
+            if (groupSizesRLELength == 0) {
+                if (currentGroupSize == 1) {
+                    groupSizesRLE[0] = Integer.MAX_VALUE;
+                    groupSizesRLE[1] = 1;
+                    groupSizesRLELength = 2;
+                } else {
+                    groupSizesRLE[0] = currentGroupSize;
+                    groupSizesRLELength = 1;
+                }
+            } else {
+                if (currentGroupSize == 1) {
+                    // Append to run length encoding of size-1 groups if it exists, or create it.
+                    if (groupSizesRLE[groupSizesRLELength - 2] == Integer.MAX_VALUE) {
+                        groupSizesRLE[groupSizesRLELength - 1] += 1;
+                    } else {
+                        groupSizesRLE[groupSizesRLELength] = Integer.MAX_VALUE;
+                        groupSizesRLE[groupSizesRLELength + 1] = 1;
+                        groupSizesRLELength += 2;
+                    }
+                } else {
+                    groupSizesRLE[groupSizesRLELength] = currentGroupSize;
+                    groupSizesRLELength += 1;
+                }
+            }
+
+            groupCount += 1;
+        }
+
+        currentGroupSize = 0;
     }
 
     public void addGroup(final TupleEntry group) {
@@ -121,11 +173,9 @@ public class V8TupleBuffer {
             updateAllFieldsKnown();
         }
 
-        groupTupleOffsets[groupTupleCount] = currentTupleOffset;
+        closeGroup();
 
         addData(Set.GROUP, group);
-
-        groupTupleCount += 1;
     }
 
     public void addArgument(final TupleEntry args) {
@@ -137,6 +187,7 @@ public class V8TupleBuffer {
         addData(Set.ARGS, args);
 
         currentTupleOffset += 1;
+        currentGroupSize += 1;
     }
 
     public boolean isFull() {
@@ -147,18 +198,23 @@ public class V8TupleBuffer {
         return currentTupleOffset;
     }
 
+    public int getGroupCount() {
+        return groupCount;
+    }
+
     public void clear() {
-        java.util.Arrays.fill(groupTupleOffsets, 0);
-        java.util.Arrays.fill(nullMasks[Set.ARGS.idx], false);
-        java.util.Arrays.fill(nullMasks[Set.GROUP.idx], false);
+        java.util.Arrays.fill(nullMasks[Set.ARGS.idx], 0);
+        java.util.Arrays.fill(nullMasks[Set.GROUP.idx], 0);
         currentTupleOffset = 0;
-        groupTupleCount = 0;
+        groupSizesRLELength = 0;
+        groupCount = 0;
+        currentGroupSize = 0;
     }
 
     public V8Array getPackage(final V8ScriptEngine eng) {
         argFieldTypeArray.setElements(fieldTypes[Set.ARGS.idx]);
         groupFieldTypeArray.setElements(fieldTypes[Set.GROUP.idx]);
-        groupTupleOffsetArray.setElements(groupTupleOffsets);
+        groupSizesRLEArray.setElements(groupSizesRLE, groupSizesRLELength);
         argNullMask.setElements(nullMasks[Set.ARGS.idx]);
         groupNullMask.setElements(nullMasks[Set.GROUP.idx]);
 
@@ -179,7 +235,7 @@ public class V8TupleBuffer {
         if (packageArray == null) {
             packageArray = eng.createArray(
                     new V8Array[] {
-                            groupTupleOffsetArray,
+                            groupSizesRLEArray,
                             groupFieldTypeArray,
                             groupNullMask,
                             argFieldTypeArray,
@@ -211,20 +267,25 @@ public class V8TupleBuffer {
         final double[][] doubleData = this.doubleData[set.idx];
         final Date[][] dateData = this.dateData[set.idx];
         final String[][] stringData = this.stringData[set.idx];
-        final boolean[] nullMask = this.nullMasks[set.idx];
+        final int[] nullMask = this.nullMasks[set.idx];
 
         final int numFields = fieldOffsets.length;
 
         for (int i = 0; i < numFields; i++) {
             final int jsType = fieldTypes[i];
-            if (jsType == Type.UNKNOWN.idx) continue;
 
             final Object val = entry.get(fieldOffsets[i]);
 
             if (val == null)  {
-                nullMask[currentTupleOffset + i] = true;
+                int fieldOffset = (currentTupleOffset * numFields) + i;
+                int maskIndex = fieldOffset / 32;
+                int shiftWidth = 32 - fieldOffset % 32;
+
+                nullMask[maskIndex] |= (0x1l << shiftWidth);
                 continue;
             }
+
+            if (jsType == Type.UNKNOWN.idx) continue;
 
             // Hacky, can't use .idx in switch
             switch (jsType) {
@@ -280,7 +341,7 @@ public class V8TupleBuffer {
         final int[] fieldTypes = this.fieldTypes[set.idx];
 
         for (int i = 0; i < numFields; i++) {
-            if (fieldTypes[i] == Type.UNKNOWN.idx) continue;
+            if (fieldTypes[i] != Type.UNKNOWN.idx) continue;
 
             Object val = entry.get(fieldOffsets[i]);
             if (val == null) continue;
@@ -343,7 +404,7 @@ public class V8TupleBuffer {
         for (int i = 0; i < numFields; i++) {
             final int jsType = fieldTypes[i];
             if (jsType != type.idx) continue;
-            final V8Array arr = v8DataArrays[i];
+            V8Array arr = v8DataArrays[i];
 
             // Hacky, can't use .idx in switch
             switch (jsType) {
@@ -351,42 +412,54 @@ public class V8TupleBuffer {
                     if (arr != null) {
                         arr.setElements(intData[i]);
                     } else {
-                        wrapper.set(i, eng.createArray(intData[i]));
+                        arr = eng.createArray(intData[i]);
+                        v8DataArrays[i] = arr;
+                        wrapper.set(i, arr);
                     }
                     break;
                 case 1: // LONG
                     if (arr != null) {
                         arr.setElements(longData[i]);
                     } else {
-                        wrapper.set(i, eng.createArray(longData[i]));
+                        arr = eng.createArray(longData[i]);
+                        v8DataArrays[i] = arr;
+                        wrapper.set(i, arr);
                     }
                     break;
                 case 2: // BOOL
                     if (arr != null) {
                         arr.setElements(boolData[i]);
                     } else {
-                        wrapper.set(i, eng.createArray(boolData[i]));
+                        arr = eng.createArray(boolData[i]);
+                        v8DataArrays[i] = arr;
+                        wrapper.set(i, arr);
                     }
                     break;
                 case 3: // DOUBLE
                     if (arr != null) {
                         arr.setElements(doubleData[i]);
                     } else {
-                        wrapper.set(i, eng.createArray(doubleData[i]));
+                        arr = eng.createArray(doubleData[i]);
+                        v8DataArrays[i] = arr;
+                        wrapper.set(i, arr);
                     }
                     break;
                 case 4: // DATE
                     if (arr != null) {
                         arr.setElements(dateData[i]);
                     } else {
-                        wrapper.set(i, eng.createArray(dateData[i]));
+                        arr = eng.createArray(dateData[i]);
+                        v8DataArrays[i] = arr;
+                        wrapper.set(i, arr);
                     }
                     break;
                 case 5: // STRING
                     if (arr != null) {
                         arr.setElements(stringData[i]);
                     } else {
-                        wrapper.set(i, eng.createArray(stringData[i]));
+                        arr = eng.createArray(stringData[i]);
+                        v8DataArrays[i] = arr;
+                        wrapper.set(i, arr);
                     }
                     break;
             }
