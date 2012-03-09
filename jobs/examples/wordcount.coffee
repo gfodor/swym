@@ -1,6 +1,6 @@
 job ($, _) ->
   $.flow 'word count', ->
-    $.source 'input', $.tap("bigwordlist.txt", $.text_line_scheme("offset", "word"))
+    $.source 'input', $.tap("words1.txt", $.text_line_scheme("offset", "word"))
 
     assembly = $.assembly 'input', ->
       #$.map { add: ["word", "word2"], remove: ["line", "offset"] }, (tuple, writer) ->

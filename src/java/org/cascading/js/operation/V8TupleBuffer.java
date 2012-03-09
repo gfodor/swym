@@ -148,7 +148,7 @@ public class V8TupleBuffer {
             } else {
                 if (currentGroupSize == 1) {
                     // Append to run length encoding of size-1 groups if it exists, or create it.
-                    if (groupSizesRLE[groupSizesRLELength - 2] == Integer.MAX_VALUE) {
+                    if (groupSizesRLELength > 1 && groupSizesRLE[groupSizesRLELength - 2] == Integer.MAX_VALUE) {
                         groupSizesRLE[groupSizesRLELength - 1] += 1;
                     } else {
                         groupSizesRLE[groupSizesRLELength] = Integer.MAX_VALUE;
@@ -172,8 +172,6 @@ public class V8TupleBuffer {
             updateFieldMeta(Set.GROUP, group);
             updateAllFieldsKnown();
         }
-
-        closeGroup();
 
         addData(Set.GROUP, group);
     }

@@ -3,7 +3,7 @@
   job(function($, _) {
     return $.flow('word count', function() {
       var assembly;
-      $.source('input', $.tap("bigwordlist.txt", $.text_line_scheme("offset", "word")));
+      $.source('input', $.tap("words1.txt", $.text_line_scheme("offset", "word")));
       assembly = $.assembly('input', function() {
         var count, last_key;
         last_key = null;

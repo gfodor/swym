@@ -2,17 +2,16 @@ package org.cascading.js.operation;
 
 import cascading.tuple.Fields;
 import cascading.tuple.TupleEntry;
+import lu.flier.script.V8Array;
 import lu.flier.script.V8Object;
 import org.cascading.js.util.Environment;
 
 public class V8OperationContext {
     private static int OUTGOING_BUFFER_SIZE = 1024 * 8;
 
+    private V8TupleBuffer tupleBuffer;
     private Environment environment;
     private V8Object v8PipeClass;
-    private Object[] buffer = null;
-    private int bufferCount = 0;
-    private int tupleWidth;
 
     public Environment getEnvironment() {
         return environment;
@@ -22,43 +21,41 @@ public class V8OperationContext {
         return v8PipeClass;
     }
 
-    public int maxBufferSize() {
-        return OUTGOING_BUFFER_SIZE * tupleWidth;
-    }
-
-    public boolean bufferIsFull() {
-        return bufferCount >= maxBufferSize();
-    }
-
-    public void clearBuffer() {
-        bufferCount = 0;
-    }
-
-    public int bufferCount() {
-       return bufferCount;
-    }
-
-    public Object[] getBuffer() {
-        return buffer;
-    }
-
-    public void addToBuffer(TupleEntry entry, Fields fields) {
-        int numFields = fields.size();
-
-        for (int i = 0; i < numFields; i++) {
-            addObjectToBuffer(entry.get(fields.getPos(fields.get(i))));
-        }
-    }
-
-    public void addObjectToBuffer(Object object) {
-        buffer[bufferCount] = object;
-        bufferCount++;
-    }
-
-    public V8OperationContext(Environment environment, V8Object v8PipeClass, int tupleWidth) {
+    public V8OperationContext(Environment environment, V8Object v8PipeClass, Fields groupingFields, Fields argumentFields) {
         this.environment = environment;
         this.v8PipeClass = v8PipeClass;
-        this.tupleWidth = tupleWidth;
-        this.buffer = new Object[maxBufferSize() + 1024];
+        this.tupleBuffer = new V8TupleBuffer(environment.getEngine(), groupingFields, argumentFields);
+    }
+
+    public void addGroup(TupleEntry group) {
+        tupleBuffer.addGroup(group);
+    }
+
+    public void addArgument(TupleEntry arg) {
+        tupleBuffer.addArgument(arg);
+    }
+
+    public void closeGroup() {
+        tupleBuffer.closeGroup();
+    }
+
+    public void clear() {
+        tupleBuffer.clear();
+    }
+
+    public boolean isFull() {
+        return tupleBuffer.isFull();
+    }
+
+    public V8Array getPackage() {
+        return tupleBuffer.getPackage(this.environment.getEngine());
+    }
+
+    public int getGroupCount() {
+        return tupleBuffer.getGroupCount();
+    }
+
+    public int getTupleCount() {
+        return tupleBuffer.getTupleCount();
     }
 }

@@ -19,12 +19,10 @@ public abstract class ScriptOperation extends BaseOperation<V8OperationContext> 
 
     private boolean isFunction = false;
     private boolean isBuffer = false;
-    private int bufferTupleWidth;
 
-    public ScriptOperation(int bufferTupleWidth, Fields argumentSelector, Fields resultFields, Environment.EnvironmentArgs environmentArgs, int pipeId) {
+    public ScriptOperation(Fields argumentSelector, Fields resultFields, Environment.EnvironmentArgs environmentArgs, int pipeId) {
         super(resultFields.size(), resultFields);
 
-        this.bufferTupleWidth = bufferTupleWidth;
         this.argumentSelector = argumentSelector;
         this.environmentArgs = environmentArgs;
         this.pipeId = pipeId;
@@ -36,6 +34,10 @@ public abstract class ScriptOperation extends BaseOperation<V8OperationContext> 
         if (this instanceof Function) {
             isFunction = true;
         }
+    }
+
+    protected Fields getGroupingFields() {
+        return new Fields();
     }
 
     @Override
@@ -57,7 +59,9 @@ public abstract class ScriptOperation extends BaseOperation<V8OperationContext> 
             V8Object v8PipeClass = (V8Object)env.extractObject("__v8PipeClass");
             env.evaluateScript("delete __v8PipeClass");
 
-            operationCall.setContext(new V8OperationContext(env, v8PipeClass, bufferTupleWidth));
+            operationCall.setContext(new V8OperationContext(env, v8PipeClass,  getGroupingFields(),
+                                                            operationCall.getArgumentFields().subtract(getGroupingFields())));
+            startTime = System.currentTimeMillis();
         } catch (IOException e) {
             e.printStackTrace();
         } catch (ScriptException e) {
@@ -65,37 +69,29 @@ public abstract class ScriptOperation extends BaseOperation<V8OperationContext> 
         }
     }
 
-    V8Array bufferArray = null;
-
-    protected void flushToV8(OperationCall<V8OperationContext> call) {
-        this.flushToV8(call, null, null);
-    }
-
     private long convertTime = 0;
+    private long startTime = 0;
 
     public void cleanup(cascading.flow.FlowProcess flowProcess, cascading.operation.OperationCall<V8OperationContext> call) {
+        System.out.println("Process time " + (System.currentTimeMillis() - startTime));
         System.out.println("Convert time " + convertTime);
     }
 
-    protected void flushToV8(OperationCall<V8OperationContext> call, V8Object delimiter, V8Object terminator) {
+    protected void flushToV8(OperationCall<V8OperationContext> call) {
         V8OperationContext ctx = call.getContext();
         Environment env = ctx.getEnvironment();
+        ctx.getPackage();
 
         try {
             long t0 = System.currentTimeMillis();
 
-            if (bufferArray == null) {
-                bufferArray = env.createArray(ctx.getBuffer());
-            } else {
-                bufferArray.setElements(ctx.getBuffer());
-            }
-
+            V8Array pkg = ctx.getPackage();
             convertTime += System.currentTimeMillis() - t0;
 
             env.invokeMethod(ctx.getV8PipeClass(), "process_tuples",
-                    pipeId, bufferArray, ctx.bufferCount(), this, call, delimiter, terminator);
+                    pipeId, ctx.getGroupCount(), ctx.getTupleCount(), pkg, this, call);
 
-            ctx.clearBuffer();
+            ctx.clear();
         } catch (ScriptException e) {
             e.printStackTrace();
         } catch (NoSuchMethodException e) {

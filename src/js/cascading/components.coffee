@@ -125,73 +125,87 @@ define ["underscore"], (_) ->
         this.pipes ?= {}
         this.pipes[pipe.pipe_id] = pipe
 
-      @process_tuples: (pipe_id, in_buffer, in_buffer_length, operation, call, delimiter, terminator) =>
+      @process_tuples: (pipe_id, group_count, tuple_count, pkg, call, delimiter) =>
         pipe = this.pipes[pipe_id]
         processor = pipe.processor
         finalizer = pipe.finalizer
-
-        buffer_flush_size = 8 * 1024
-        out_buffer = new Array(buffer_flush_size + 256)
-        out_buffer_length = 0
-        num_fields = pipe.incoming.length
-
-        flush ?= operation.flushFromV8
-
         tuple = {}
-        tuple_length = 0
 
         group_fields = pipe.group_fields ? []
         in_buffer_fields = _.difference(pipe.incoming, group_fields)
         out_buffer_fields = _.difference(pipe.outgoing, group_fields)
         is_group_by = pipe.is_group_by?
-        group_field_values = {}
 
-        # callback function passed to processor and finalizer
-        writer = (t) =>
-          for field in out_buffer_fields
-            out_buffer[out_buffer_length] = t[field] ? null
-            out_buffer_length += 1
+        # Unpack
+        group_sizes = pkg[0]
+        group_field_types = pkg[1]
+        group_null_mask = pkg[2]
+        arg_field_types = pkg[3]
+        arg_null_mask = pkg[4]
+        package_data_index = 5
 
-          if is_group_by
-            # Emit group keys into stub fields, to be renamed later.
-            for field in group_fields
-              out_buffer[out_buffer_length] = group_field_values[field]
-              out_buffer_length += 1
+        #buffer_flush_size = 8 * 1024
+        #out_buffer = new Array(buffer_flush_size + 256)
+        #out_buffer_length = 0
+        #num_fields = pipe.incoming.length
 
-          if out_buffer_length >= buffer_flush_size
-            flush.apply(operation, [out_buffer, out_buffer_length, call])
-            out_buffer_length = 0
+        #flush ?= operation.flushFromV8
 
-        for idx in [0...in_buffer_length]
-          entry = in_buffer[idx]
-          is_terminator = is_group_by and entry is terminator
+        #tuple = {}
+        #tuple_length = 0
 
-          if is_group_by and (idx is 0 or is_terminator)
-            # End of a group has been reached, call finalizer
-            finalizer writer if is_terminator
+        #group_fields = pipe.group_fields ? []
+        #in_buffer_fields = _.difference(pipe.incoming, group_fields)
+        #out_buffer_fields = _.difference(pipe.outgoing, group_fields)
+        #is_group_by = pipe.is_group_by?
+        #group_field_values = {}
 
-            # Objects in buffer following delimiter or terminator are group field values.
-            idx += 1
+        ## callback function passed to processor and finalizer
+        #writer = (t) =>
+        #  for field in out_buffer_fields
+        #    out_buffer[out_buffer_length] = t[field] ? null
+        #    out_buffer_length += 1
 
-            for i_group_field in [0...group_fields.length]
-              group_field_values[group_fields[i_group_field]] = in_buffer[idx + i_group_field]
+        #  if is_group_by
+        #    # Emit group keys into stub fields, to be renamed later.
+        #    for field in group_fields
+        #      out_buffer[out_buffer_length] = group_field_values[field]
+        #      out_buffer_length += 1
 
-            idx += group_fields.length - 1
-          else
-            # Process next tuple field
-            tuple[in_buffer_fields[tuple_length]] = entry
-            tuple_length += 1
+        #  if out_buffer_length >= buffer_flush_size
+        #    flush.apply(operation, [out_buffer, out_buffer_length, call])
+        #    out_buffer_length = 0
 
-            if tuple_length is in_buffer_fields.length
-              if is_group_by
-                for field in group_fields
-                  tuple[field] = group_field_values[field]
+        #for idx in [0...in_buffer_length]
+        #  entry = in_buffer[idx]
+        #  is_terminator = is_group_by and entry is terminator
 
-              tuple_length = 0
+        #  if is_group_by and (idx is 0 or is_terminator)
+        #    # End of a group has been reached, call finalizer
+        #    finalizer writer if is_terminator
 
-              processor tuple, writer
+        #    # Objects in buffer following delimiter or terminator are group field values.
+        #    idx += 1
 
-        flush.apply(operation, [out_buffer, out_buffer_length, call])
+        #    for i_group_field in [0...group_fields.length]
+        #      group_field_values[group_fields[i_group_field]] = in_buffer[idx + i_group_field]
+
+        #    idx += group_fields.length - 1
+        #  else
+        #    # Process next tuple field
+        #    tuple[in_buffer_fields[tuple_length]] = entry
+        #    tuple_length += 1
+
+        #    if tuple_length is in_buffer_fields.length
+        #      if is_group_by
+        #        for field in group_fields
+        #          tuple[field] = group_field_values[field]
+
+        #      tuple_length = 0
+
+        #      processor tuple, writer
+
+        #flush.apply(operation, [out_buffer, out_buffer_length, call])
 
       is_pipe: true
 
