@@ -10,16 +10,13 @@
         count = 0;
         return $.foreach_group(["word"], {
           add: ["count"]
-        }, (function(tuple, writer) {
-          if (tuple.word !== last_key) {
-            last_key = tuple.word;
-            count = 0;
-          }
+        }, (function(group, argument, writer) {
+          return count = 0;
+        }), (function(group, argument, writer) {
           return count += 1;
-        }), (function(writer) {
-          return writer({
-            count: count
-          });
+        }), (function(group, argument, out, writer) {
+          out.count(count);
+          return writer();
         }));
       });
       return $.sink('input', $.tap("output", $.text_line_scheme("word", "count")));

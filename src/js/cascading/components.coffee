@@ -125,87 +125,32 @@ define ["underscore"], (_) ->
         this.pipes ?= {}
         this.pipes[pipe.pipe_id] = pipe
 
-      @process_tuples: (pipe_id, group_count, tuple_count, pkg, call, delimiter) =>
-        pipe = this.pipes[pipe_id]
-        processor = pipe.processor
-        finalizer = pipe.finalizer
-        tuple = {}
+      @set_pipe_out_buffer: (out_buffer, pipe_id) ->
+        pipe = Pipe.pipes[pipe_id].out_buffer = out_buffer
 
-        group_fields = pipe.group_fields ? []
-        in_buffer_fields = _.difference(pipe.incoming, group_fields)
-        out_buffer_fields = _.difference(pipe.outgoing, group_fields)
-        is_group_by = pipe.is_group_by?
+      @get_group_start_processor: (group_tuple, argument_tuple, pipe_id) ->
+        self = this
+        pipe = Pipe.pipes[pipe_id]
 
-        # Unpack
-        group_sizes = pkg[0]
-        group_field_types = pkg[1]
-        group_null_mask = pkg[2]
-        arg_field_types = pkg[3]
-        arg_null_mask = pkg[4]
-        package_data_index = 5
+        ->
+          pipe.initializer(group_tuple, argument_tuple, null)
+          console.log("Got new group " + group_tuple.word())
 
-        #buffer_flush_size = 8 * 1024
-        #out_buffer = new Array(buffer_flush_size + 256)
-        #out_buffer_length = 0
-        #num_fields = pipe.incoming.length
+      @get_argument_processor: (group_tuple, argument_tuple, pipe_id) ->
+        self = this
+        pipe = Pipe.pipes[pipe_id]
 
-        #flush ?= operation.flushFromV8
+        ->
+          pipe.processor(group_tuple, argument_tuple, null)
+          console.log("Got new argument " + group_tuple.word())
 
-        #tuple = {}
-        #tuple_length = 0
+      @get_group_end_processor: (group_tuple, argument_tuple) ->
+        self = this
+        pipe = Pipe.pipes[pipe_id]
 
-        #group_fields = pipe.group_fields ? []
-        #in_buffer_fields = _.difference(pipe.incoming, group_fields)
-        #out_buffer_fields = _.difference(pipe.outgoing, group_fields)
-        #is_group_by = pipe.is_group_by?
-        #group_field_values = {}
-
-        ## callback function passed to processor and finalizer
-        #writer = (t) =>
-        #  for field in out_buffer_fields
-        #    out_buffer[out_buffer_length] = t[field] ? null
-        #    out_buffer_length += 1
-
-        #  if is_group_by
-        #    # Emit group keys into stub fields, to be renamed later.
-        #    for field in group_fields
-        #      out_buffer[out_buffer_length] = group_field_values[field]
-        #      out_buffer_length += 1
-
-        #  if out_buffer_length >= buffer_flush_size
-        #    flush.apply(operation, [out_buffer, out_buffer_length, call])
-        #    out_buffer_length = 0
-
-        #for idx in [0...in_buffer_length]
-        #  entry = in_buffer[idx]
-        #  is_terminator = is_group_by and entry is terminator
-
-        #  if is_group_by and (idx is 0 or is_terminator)
-        #    # End of a group has been reached, call finalizer
-        #    finalizer writer if is_terminator
-
-        #    # Objects in buffer following delimiter or terminator are group field values.
-        #    idx += 1
-
-        #    for i_group_field in [0...group_fields.length]
-        #      group_field_values[group_fields[i_group_field]] = in_buffer[idx + i_group_field]
-
-        #    idx += group_fields.length - 1
-        #  else
-        #    # Process next tuple field
-        #    tuple[in_buffer_fields[tuple_length]] = entry
-        #    tuple_length += 1
-
-        #    if tuple_length is in_buffer_fields.length
-        #      if is_group_by
-        #        for field in group_fields
-        #          tuple[field] = group_field_values[field]
-
-        #      tuple_length = 0
-
-        #      processor tuple, writer
-
-        #flush.apply(operation, [out_buffer, out_buffer_length, call])
+        ->
+          pipe.finalizer(group_tuple, argument_tuple, null)
+          console.log("Finish group " + group_tuple.word())
 
       is_pipe: true
 
@@ -292,7 +237,7 @@ define ["underscore"], (_) ->
     class GroupBy extends Pipe
       is_group_by: true
 
-      constructor: (assembly, @group_fields, @spec, @processor, @finalizer) ->
+      constructor: (assembly, @group_fields, @spec, @initializer, @processor, @finalizer) ->
         super(assembly)
         throw new Error("Invalid group by fields #{@group_fields}") unless typeof(@group_fields) == "object"
         @sort_fields = @spec?.sort_fields ? []
@@ -310,6 +255,11 @@ define ["underscore"], (_) ->
 
         for add_field in @spec.add
           @outgoing[@outgoing.length] = add_field
+
+        @outgoing_types = {}
+
+        for outgoing_field in @outgoing
+          @outgoing_types[outgoing_field] = -1 # Type.UNKNOWN
 
       to_java: (parent_pipe) ->
         parent_jpipe = @parent_pipe?.to_java()

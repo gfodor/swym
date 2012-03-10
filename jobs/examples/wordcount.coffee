@@ -11,14 +11,13 @@ job ($, _) ->
       count = 0
 
       $.foreach_group ["word"], { add: ["count"] },
-        ((tuple, writer) ->
-          if tuple.word isnt last_key
-            last_key = tuple.word
-            count = 0
-
+        ((group, argument, writer) ->
+          count = 0),
+        ((group, argument, writer) ->
           count += 1),
-        ((writer) ->
-          writer({ count: count }))
+        ((group, argument, out, writer) ->
+          out.count(count)
+          writer())
 
         #$.aggregate "count", (keys, values, context) ->
         #  if context is null
