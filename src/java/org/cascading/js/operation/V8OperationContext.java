@@ -13,7 +13,7 @@ import javax.script.ScriptException;
 import java.util.Date;
 
 public class V8OperationContext {
-    private static int OUTGOING_BUFFER_SIZE = 1024 * 8;
+    private static int DEFAULT_INCOMING_BUFFER_SIZE = 1024 * 8;
 
     private V8TupleTransfer tupleTransfer;
     private Environment environment;
@@ -44,29 +44,27 @@ public class V8OperationContext {
     private V8Array outArgs;
     private int[] jOutArgs = new int[1];
 
-    private Fields resultFields;
-
     public Environment getEnvironment() {
         return environment;
     }
 
     public V8OperationContext(Environment environment, V8Object v8PipeClass, int pipeId, Fields groupingFields, Fields argumentFields, Fields resultFields) {
         this.environment = environment;
-        this.resultFields = resultFields;
-        this.tupleTransfer = new V8TupleTransfer(environment.getEngine(), groupingFields, argumentFields);
-        this.outInt = environment.getEngine().createArray(new Object[0]);
-        this.outLong = environment.getEngine().createArray(new Object[0]);
-        this.outBool = environment.getEngine().createArray(new Object[0]);
-        this.outDouble = environment.getEngine().createArray(new Object[0]);
-        this.outDate = environment.getEngine().createArray(new Object[0]);
-        this.outString = environment.getEngine().createArray(new Object[0]);
-        this.outFieldTypes = environment.getEngine().createArray(new Object[0]);
-        this.outFieldDataOffsets = environment.getEngine().createArray(new Object[resultFields.size()]);
-        this.outNumFieldsPerType = environment.getEngine().createArray(jOutNumFieldsPerType);
-        this.outNullMap = environment.getEngine().createArray(new Object[0]);
+
+        tupleTransfer = new V8TupleTransfer(environment.getEngine(), groupingFields, argumentFields);
+        outInt = environment.getEngine().createArray(new int[DEFAULT_INCOMING_BUFFER_SIZE]);
+        outLong = environment.getEngine().createArray(new long[DEFAULT_INCOMING_BUFFER_SIZE]);
+        outBool = environment.getEngine().createArray(new boolean[DEFAULT_INCOMING_BUFFER_SIZE]);
+        outDouble = environment.getEngine().createArray(new double[DEFAULT_INCOMING_BUFFER_SIZE]);
+        outDate = environment.getEngine().createArray(new Date[DEFAULT_INCOMING_BUFFER_SIZE]);
+        outString = environment.getEngine().createArray(new String[DEFAULT_INCOMING_BUFFER_SIZE]);
+        outFieldTypes = environment.getEngine().createArray(new Object[DEFAULT_INCOMING_BUFFER_SIZE]);
+        outFieldDataOffsets = environment.getEngine().createArray(new Object[resultFields.size()]);
+        outNumFieldsPerType = environment.getEngine().createArray(jOutNumFieldsPerType);
+        outNullMap = environment.getEngine().createArray(new boolean[DEFAULT_INCOMING_BUFFER_SIZE * resultFields.size()]);
 
         // Out args: [number_of_tuples]
-        this.outArgs = environment.getEngine().createArray(jOutArgs);
+        outArgs = environment.getEngine().createArray(jOutArgs);
         jOutFieldTypes = new int[resultFields.size()];
         jOutFieldDataOffsets = new int[resultFields.size()];
 
@@ -162,11 +160,12 @@ public class V8OperationContext {
             Tuple tuple = new Tuple();
 
             for (int iField = 0; iField < numFields; iField++) {
-                if (jOutNullMap[iTuple * iField]) {
+                if (jOutNullMap[(iTuple * numFields) + iField]) {
                     continue;
                 }
 
-                final int dataIndex = (numberOfTuples * iTuple) + jOutFieldDataOffsets[iField];
+                final int dataIndex = (iTuple * jOutNumFieldsPerType[jOutFieldTypes[iField]]) +
+                                      jOutFieldDataOffsets[iField];
 
                 switch (jOutFieldTypes[iField]) {
                     case 0: // INT
