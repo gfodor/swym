@@ -10,16 +10,13 @@ import lu.flier.script.V8Object;
 import lu.flier.script.V8ScriptEngine;
 import org.cascading.js.util.Environment;
 
-import javax.script.Bindings;
-import javax.script.ScriptContext;
-import javax.script.ScriptException;
 import java.util.Date;
 
 public class V8OperationContext {
     // Assume people have at most 64 columns of each type (note V8 will expand arrays)
     private static int DEFAULT_INCOMING_BUFFER_SIZE = 64;
 
-    private V8TupleTransfer tupleTransfer;
+    private V8TupleBuffer tupleBuffer;
     private Environment environment;
     private V8Function argumentProcessor;
     private V8Function groupStartProcessor;
@@ -56,7 +53,7 @@ public class V8OperationContext {
         this.environment = environment;
         V8ScriptEngine eng = environment.getEngine();
 
-        tupleTransfer = new V8TupleTransfer(environment.getEngine(), groupingFields, argumentFields);
+        tupleBuffer = new V8TupleBuffer(eng, groupingFields, argumentFields);
         outInt = eng.createArray(new int[DEFAULT_INCOMING_BUFFER_SIZE]);
         outLong = eng.createArray(new long[DEFAULT_INCOMING_BUFFER_SIZE]);
         outBool = eng.createArray(new boolean[DEFAULT_INCOMING_BUFFER_SIZE]);
@@ -72,7 +69,7 @@ public class V8OperationContext {
         jOutFieldTypes = new int[resultFields.size()];
         jOutFieldDataOffsets = new int[resultFields.size()];
 
-        try {
+        /*try {
             environment.invokeMethod(v8PipeClass, "set_pipe_out_buffers",
               eng.createArray(new V8Array[] {  outInt, outLong, outBool, outDouble, outDate, outString, outFieldTypes,
                                                outFieldDataOffsets, outNumFieldsPerType, outNullMap }), pipeId);
@@ -97,7 +94,7 @@ public class V8OperationContext {
         } catch (NoSuchMethodException e) {
             e.printStackTrace();
             throw new RuntimeException(e);
-        }
+        }*/
     }
 
     public void setOutputEntryCollector(TupleEntryCollector out) {
@@ -203,12 +200,24 @@ public class V8OperationContext {
         outputEntryCollector.add(new TupleEntry(tuple));
     }
 
-    public void setArgument(TupleEntry argument) {
-        this.tupleTransfer.setArgument(argument);
+    public void addArgument(TupleEntry argument) {
+        this.tupleBuffer.addArgument(argument);
     }
 
-    public void setGroup(TupleEntry group) {
-        this.tupleTransfer.setGroup(group);
+    public void addGroup(TupleEntry group) {
+        this.tupleBuffer.addGroup(group);
+    }
+
+    public boolean isFull() {
+        return this.tupleBuffer.isFull();
+    }
+
+    public void clear() {
+        this.tupleBuffer.clear();
+    }
+
+    public void closeGroup() {
+        this.tupleBuffer.closeGroup();
     }
 
     public void fireArgumentProcessor() {

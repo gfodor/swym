@@ -44,13 +44,13 @@ public class ScriptBuffer extends ScriptOperation implements Buffer<V8OperationC
         while (arguments.hasNext()) {
             TupleEntry next = arguments.next();
             t0 = System.currentTimeMillis();
-            ctx.setArgument(next);
-            timeSetArg += (System.currentTimeMillis() - t0);
+            ctx.addArgument(next);
 
-            t0 = System.currentTimeMillis();
-            ctx.fireArgumentProcessor();
-            timeInInvoke += (System.currentTimeMillis() - t0);
-            numberInvokes++;
+            if (ctx.isFull()) {
+                ctx.clear();
+            }
+
+            timeSetArg += (System.currentTimeMillis() - t0);
         }
 
         //ctx.fireGroupEndProcessor();
