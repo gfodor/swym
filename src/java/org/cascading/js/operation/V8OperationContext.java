@@ -7,19 +7,24 @@ import cascading.tuple.TupleEntryCollector;
 import lu.flier.script.V8Array;
 import lu.flier.script.V8Function;
 import lu.flier.script.V8Object;
+import lu.flier.script.V8ScriptEngine;
 import org.cascading.js.util.Environment;
 
+import javax.script.Bindings;
+import javax.script.ScriptContext;
 import javax.script.ScriptException;
 import java.util.Date;
 
 public class V8OperationContext {
-    private static int DEFAULT_INCOMING_BUFFER_SIZE = 1024 * 8;
+    // Assume people have at most 64 columns of each type (note V8 will expand arrays)
+    private static int DEFAULT_INCOMING_BUFFER_SIZE = 64;
 
     private V8TupleTransfer tupleTransfer;
     private Environment environment;
     private V8Function argumentProcessor;
     private V8Function groupStartProcessor;
     private V8Function groupEndProcessor;
+    private TupleEntryCollector outputEntryCollector;
 
     private V8Array outInt;
     private int[] jOutInt = new int[0];
@@ -41,8 +46,7 @@ public class V8OperationContext {
     private int[] jOutNumFieldsPerType = new int[V8TupleTransfer.Type.values().length - 1];
     private V8Array outFieldDataOffsets;
     private int[] jOutFieldDataOffsets;
-    private V8Array outArgs;
-    private int[] jOutArgs = new int[1];
+    private boolean readFieldMetadata = false;
 
     public Environment getEnvironment() {
         return environment;
@@ -50,63 +54,74 @@ public class V8OperationContext {
 
     public V8OperationContext(Environment environment, V8Object v8PipeClass, int pipeId, Fields groupingFields, Fields argumentFields, Fields resultFields) {
         this.environment = environment;
+        V8ScriptEngine eng = environment.getEngine();
 
         tupleTransfer = new V8TupleTransfer(environment.getEngine(), groupingFields, argumentFields);
-        outInt = environment.getEngine().createArray(new int[DEFAULT_INCOMING_BUFFER_SIZE]);
-        outLong = environment.getEngine().createArray(new long[DEFAULT_INCOMING_BUFFER_SIZE]);
-        outBool = environment.getEngine().createArray(new boolean[DEFAULT_INCOMING_BUFFER_SIZE]);
-        outDouble = environment.getEngine().createArray(new double[DEFAULT_INCOMING_BUFFER_SIZE]);
-        outDate = environment.getEngine().createArray(new Date[DEFAULT_INCOMING_BUFFER_SIZE]);
-        outString = environment.getEngine().createArray(new String[DEFAULT_INCOMING_BUFFER_SIZE]);
-        outFieldTypes = environment.getEngine().createArray(new Object[DEFAULT_INCOMING_BUFFER_SIZE]);
-        outFieldDataOffsets = environment.getEngine().createArray(new Object[resultFields.size()]);
-        outNumFieldsPerType = environment.getEngine().createArray(jOutNumFieldsPerType);
-        outNullMap = environment.getEngine().createArray(new boolean[DEFAULT_INCOMING_BUFFER_SIZE * resultFields.size()]);
+        outInt = eng.createArray(new int[DEFAULT_INCOMING_BUFFER_SIZE]);
+        outLong = eng.createArray(new long[DEFAULT_INCOMING_BUFFER_SIZE]);
+        outBool = eng.createArray(new boolean[DEFAULT_INCOMING_BUFFER_SIZE]);
+        outDouble = eng.createArray(new double[DEFAULT_INCOMING_BUFFER_SIZE]);
+        outDate = eng.createArray(new Date[DEFAULT_INCOMING_BUFFER_SIZE]);
+        outString = eng.createArray(new String[DEFAULT_INCOMING_BUFFER_SIZE]);
+        outFieldTypes = eng.createArray(new int[resultFields.size()]);
+        outFieldDataOffsets = eng.createArray(new int[resultFields.size()]);
+        outNumFieldsPerType = eng.createArray(jOutNumFieldsPerType);
+        outNullMap = eng.createArray(new boolean[resultFields.size()]);
+        jOutNullMap = new boolean[resultFields.size()];
 
-        // Out args: [number_of_tuples]
-        outArgs = environment.getEngine().createArray(jOutArgs);
         jOutFieldTypes = new int[resultFields.size()];
         jOutFieldDataOffsets = new int[resultFields.size()];
 
         try {
             environment.invokeMethod(v8PipeClass, "set_pipe_out_buffers",
-              outInt, outLong, outBool, outDouble, outDate, outString,
-              outFieldTypes, outFieldDataOffsets, outNumFieldsPerType, outNullMap, outArgs, pipeId);
+              eng.createArray(new V8Array[] {  outInt, outLong, outBool, outDouble, outDate, outString, outFieldTypes,
+                                               outFieldDataOffsets, outNumFieldsPerType, outNullMap }), pipeId);
+
+            V8Function emitCallback = eng.createFunction(this, "emit");
 
             argumentProcessor = (V8Function)environment.invokeMethod(v8PipeClass, "get_argument_processor",
-                    this.tupleTransfer.getGroupTuple(), this.tupleTransfer.getArgumentTuple(), pipeId);
+                    this.tupleTransfer.getGroupTuple(), this.tupleTransfer.getArgumentTuple(), emitCallback, pipeId);
+
+            eng.compile("var foo = function() { }").eval();
+            Bindings scope = eng.getBindings(ScriptContext.ENGINE_SCOPE);
+            argumentProcessor = (V8Function)scope.get("foo");
 
             groupStartProcessor = (V8Function)environment.invokeMethod(v8PipeClass, "get_group_start_processor",
-                    this.tupleTransfer.getGroupTuple(), this.tupleTransfer.getArgumentTuple(), pipeId);
+                    this.tupleTransfer.getGroupTuple(), this.tupleTransfer.getArgumentTuple(), emitCallback, pipeId);
 
-            groupEndProcessor = (V8Function)environment.invokeMethod(v8PipeClass, "get_group_start_processor",
-                    this.tupleTransfer.getGroupTuple(), this.tupleTransfer.getArgumentTuple(), pipeId);
+            groupEndProcessor = (V8Function)environment.invokeMethod(v8PipeClass, "get_group_end_processor",
+                    this.tupleTransfer.getGroupTuple(), this.tupleTransfer.getArgumentTuple(), emitCallback, pipeId);
         } catch (ScriptException e) {
             e.printStackTrace();
+            throw new RuntimeException(e);
         } catch (NoSuchMethodException e) {
             e.printStackTrace();
+            throw new RuntimeException(e);
         }
     }
 
-    public void emitOutTupleEntries(TupleEntryCollector out) {
-        outArgs.toIntArray(jOutArgs,  1);
-        outFieldTypes.toIntArray(jOutFieldTypes, jOutFieldTypes.length);
-        outNumFieldsPerType.toIntArray(jOutNumFieldsPerType, jOutNumFieldsPerType.length);
-        outFieldDataOffsets.toIntArray(jOutFieldDataOffsets, jOutFieldDataOffsets.length);
+    public void setOutputEntryCollector(TupleEntryCollector out) {
+        if (this.outputEntryCollector != out) {
+            this.outputEntryCollector = out;
+        }
+    }
 
-        final int numberOfTuples = jOutArgs[0];
-        final int numFields = jOutFieldTypes.length;
-
-        if (jOutNullMap.length < numberOfTuples * numFields) {
-            // TODO make this a bunch of longs?
-            jOutNullMap = new boolean[numberOfTuples * numFields];
+    public void emit() {
+        if (!readFieldMetadata) {
+            outFieldTypes.toIntArray(jOutFieldTypes, jOutFieldTypes.length);
+            outNumFieldsPerType.toIntArray(jOutNumFieldsPerType, jOutNumFieldsPerType.length);
+            outFieldDataOffsets.toIntArray(jOutFieldDataOffsets, jOutFieldDataOffsets.length);
+            readFieldMetadata = true;
         }
 
-        outNullMap.toBooleanArray(jOutNullMap, numberOfTuples * numFields);
+        final int numFields = jOutFieldTypes.length;
+
+        outNullMap.toBooleanArray(jOutNullMap, numFields);
 
         // Copy data to java
         for (int typeIdx = 0; typeIdx < jOutNumFieldsPerType.length; typeIdx++) {
-            final int numberOfEntries = numberOfTuples * jOutNumFieldsPerType[typeIdx];
+            final int numberOfEntries = jOutNumFieldsPerType[typeIdx];
+            if (numberOfEntries == 0) continue;
 
             switch (typeIdx) {
                 case 0: // INT
@@ -154,43 +169,38 @@ public class V8OperationContext {
             }
         }
 
-        // TODO try using copy of tuple, if so make sure outnullmap case sets null explicitly
+        Tuple tuple = Tuple.size(numFields);
 
-        for (int iTuple = 0; iTuple < numberOfTuples; iTuple++) {
-            Tuple tuple = new Tuple();
-
-            for (int iField = 0; iField < numFields; iField++) {
-                if (jOutNullMap[(iTuple * numFields) + iField]) {
-                    continue;
-                }
-
-                final int dataIndex = (iTuple * jOutNumFieldsPerType[jOutFieldTypes[iField]]) +
-                                      jOutFieldDataOffsets[iField];
-
-                switch (jOutFieldTypes[iField]) {
-                    case 0: // INT
-                        tuple.set(iField,  jOutInt[dataIndex]);
-                        break;
-                    case 1: // LONG
-                        tuple.set(iField, jOutLong[dataIndex]);
-                        break;
-                    case 2: // BOOL
-                        tuple.set(iField, jOutBool[dataIndex]);
-                        break;
-                    case 3: // DOUBLE
-                        tuple.set(iField, jOutDouble[dataIndex]);
-                        break;
-                    case 4: // DATE
-                        tuple.set(iField, jOutDate[dataIndex]);
-                        break;
-                    case 5: // STRING
-                        tuple.set(iField, jOutString[dataIndex]);
-                        break;
-                }
+        for (int iField = 0; iField < numFields; iField++) {
+            if (jOutNullMap[iField]) {
+                continue;
             }
 
-            out.add(new TupleEntry(tuple));
+            final int dataIndex =  jOutFieldDataOffsets[iField];
+
+            switch (jOutFieldTypes[iField]) {
+                case 0: // INT
+                    tuple.set(iField,  jOutInt[dataIndex]);
+                    break;
+                case 1: // LONG
+                    tuple.set(iField, jOutLong[dataIndex]);
+                    break;
+                case 2: // BOOL
+                    tuple.set(iField, jOutBool[dataIndex]);
+                    break;
+                case 3: // DOUBLE
+                    tuple.set(iField, jOutDouble[dataIndex]);
+                    break;
+                case 4: // DATE
+                    tuple.set(iField, jOutDate[dataIndex]);
+                    break;
+                case 5: // STRING
+                    tuple.set(iField, jOutString[dataIndex]);
+                    break;
+            }
         }
+
+        outputEntryCollector.add(new TupleEntry(tuple));
     }
 
     public void setArgument(TupleEntry argument) {

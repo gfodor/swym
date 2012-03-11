@@ -1,6 +1,6 @@
 job ($, _) ->
   $.flow 'word count', ->
-    $.source 'input', $.tap("words1.txt", $.text_line_scheme("offset", "word"))
+    $.source 'input', $.tap("tinywordlist.txt", $.text_line_scheme("offset", "word"))
 
     assembly = $.assembly 'input', ->
       #$.map { add: ["word", "word2"], remove: ["line", "offset"] }, (tuple, writer) ->
@@ -10,14 +10,14 @@ job ($, _) ->
       last_key = null
       count = 0
 
-      $.foreach_group ["word"], { add: ["count"] },
-        ((group, argument, writer) ->
+      $.foreach_group ["word"], { add: ["count"], types: { count: "int" } },
+        ((group, argument, out, flush) ->
           count = 0),
-        ((group, argument, writer) ->
+        ((group, argument, out, flush) ->
           count += 1),
-        ((group, argument, out, writer) ->
+        ((group, argument, out, flush) ->
           out.count(count)
-          writer())
+          )
 
         #$.aggregate "count", (keys, values, context) ->
         #  if context is null

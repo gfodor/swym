@@ -53,6 +53,8 @@ require { baseUrl: "lib/js" }, ["cascading/builder", "cascading/schemes", "under
     it "should verify arity of map function", ->
     it "should verify arity of foreach_group function", ->
     it "should fail if no assembly for sink", ->
+    it "should fail if missing type info for a field", ->
+    it "should fail if invalid type info for a field", ->
     it "should fail if duplicate assembly", ->
       expect_bad_flow "Duplicate assembly input", ($) ->
         $.source 'input', $.tap("listings.txt", $.text_line_scheme("offset", "line_1"))

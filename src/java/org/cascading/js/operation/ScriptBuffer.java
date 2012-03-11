@@ -23,21 +23,37 @@ public class ScriptBuffer extends ScriptOperation implements Buffer<V8OperationC
         return groupingFields;
     }
 
+    long timeInInvoke = 0;
+    long numberInvokes = 0;
+
+    long timeSetGroup = 0;
+    long timeSetArg = 0;
+
     public void operate(FlowProcess flowProcess, BufferCall<V8OperationContext> call) {
         V8OperationContext ctx = call.getContext();
 
         Iterator<TupleEntry> arguments = call.getArgumentsIterator();
         TupleEntry group = call.getGroup();
-        ctx.setGroup(group);
-        ctx.fireGroupStartProcessor();
+
+        ctx.setOutputEntryCollector(call.getOutputCollector());
+        long t0 = System.currentTimeMillis();
+        //ctx.setGroup(group);
+        timeSetGroup += (System.currentTimeMillis() - t0);
+        //ctx.fireGroupStartProcessor();
 
         while (arguments.hasNext()) {
             TupleEntry next = arguments.next();
+            t0 = System.currentTimeMillis();
             ctx.setArgument(next);
+            timeSetArg += (System.currentTimeMillis() - t0);
+
+            t0 = System.currentTimeMillis();
             ctx.fireArgumentProcessor();
+            timeInInvoke += (System.currentTimeMillis() - t0);
+            numberInvokes++;
         }
 
-        ctx.fireGroupEndProcessor();
+        //ctx.fireGroupEndProcessor();
     }
 
     private long t0;
@@ -50,7 +66,7 @@ public class ScriptBuffer extends ScriptOperation implements Buffer<V8OperationC
 
     public void cleanup(cascading.flow.FlowProcess flowProcess, cascading.operation.OperationCall<V8OperationContext> call) {
         super.cleanup(flowProcess, call);
-        System.out.println("Buffer time: " + (System.currentTimeMillis() - t0));
+        System.out.println("Buffer time: " + (System.currentTimeMillis() - t0) + " " + timeInInvoke + " " + timeSetArg + " " + timeSetGroup);
         call.getContext().getEnvironment().shutdown();
     }
 }

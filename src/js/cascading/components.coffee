@@ -117,40 +117,68 @@ define ["underscore"], (_) ->
   Pipe:
     class Pipe
       @register_pipe: (pipe) =>
-        this.current_pipe_id ?= 0
-        this.current_pipe_id += 1
+        @current_pipe_id ?= 0
+        @current_pipe_id += 1
 
         pipe.pipe_id = this.current_pipe_id
 
-        this.pipes ?= {}
-        this.pipes[pipe.pipe_id] = pipe
+        @pipes ?= {}
+        @pipes[pipe.pipe_id] = pipe
 
-      @set_pipe_out_buffer: (out_buffer, pipe_id) ->
-        pipe = Pipe.pipes[pipe_id].out_buffer = out_buffer
+      @type_idx_map:
+        int: 0
+        long: 1
+        bool: 2
+        double: 3
+        date: 4
+        string: 5
 
-      @get_group_start_processor: (group_tuple, argument_tuple, pipe_id) ->
-        self = this
-        pipe = Pipe.pipes[pipe_id]
+      @set_pipe_out_buffers: (out_buffers, pipe_id) =>
+        pipe = @pipes[pipe_id]
+        pipe.out_buffers = out_buffers
+        num_types = _.keys(@type_idx_map).length
+        out_field_types = out_buffers[num_types]
+        out_field_data_offsets = out_buffers[num_types + 1]
+        out_num_fields_per_type = out_buffers[num_types + 2]
 
-        ->
-          pipe.initializer(group_tuple, argument_tuple, null)
-          console.log("Got new group " + group_tuple.word())
+        current_offsets = []
+        pipe.out_obj = {}
 
-      @get_argument_processor: (group_tuple, argument_tuple, pipe_id) ->
-        self = this
-        pipe = Pipe.pipes[pipe_id]
+        for type, idx of @type_idx_map
+          out_num_fields_per_type[idx] = 0
+          current_offsets[current_offsets.length] = 0
 
-        ->
-          pipe.processor(group_tuple, argument_tuple, null)
-          console.log("Got new argument " + group_tuple.word())
+        writable_fields = pipe.outgoing
+        writable_fields = _.difference(writable_fields, pipe.group_fields) if pipe.group_fields
 
-      @get_group_end_processor: (group_tuple, argument_tuple) ->
-        self = this
-        pipe = Pipe.pipes[pipe_id]
+        for i_field, field of writable_fields
+          type_idx = pipe.outgoing_types[field]
+          out_num_fields_per_type[type_idx] += 1
+          offset = current_offsets[type_idx]
+          out_field_data_offsets[i_field] = offset
+          out_field_types[i_field] = type_idx
 
-        ->
-          pipe.finalizer(group_tuple, argument_tuple, null)
-          console.log("Finish group " + group_tuple.word())
+          pipe.out_obj[field] = ((type_idx, offset) ->
+            (val) ->
+              pipe.out_buffers[type_idx][offset] = val
+          )(type_idx, offset)
+
+          current_offsets[type_idx] += 1
+
+      @get_group_start_processor: (group_tuple, argument_tuple, emit, pipe_id) =>
+        out = @pipes[pipe_id].out_obj
+        f = @pipes[pipe_id].initializer
+        -> #f(group_tuple, argument_tuple, out, emit)
+
+      @get_argument_processor: (group_tuple, argument_tuple, emit, pipe_id) ->
+        -> #f(group_tuple, argument_tuple, out, emit)
+        #out = @pipes[pipe_id].out_obj
+        #f = @pipes[pipe_id].processor
+
+      @get_group_end_processor: (group_tuple, argument_tuple, emit, pipe_id) =>
+        out = @pipes[pipe_id].out_obj
+        f = @pipes[pipe_id].finalizer
+        -> #f(group_tuple, argument_tuple, out, emit)
 
       is_pipe: true
 
@@ -161,6 +189,23 @@ define ["underscore"], (_) ->
 
       connect_to_incoming: (incoming) ->
         @incoming = @outgoing = incoming
+
+      validate_types: (spec) ->
+        types = spec.types
+        types ?= {}
+
+        @outgoing_types = {}
+
+        for field in @outgoing
+          continue if @group_fields && _.include(@group_fields, field)
+
+          type = types[field]
+          throw new Error("Missing type spec for #{field}") unless type
+
+          type_idx = Pipe.type_idx_map[type]
+          throw new Error("Invalid type #{type} for #{field}") unless type_idx?
+
+          @outgoing_types[field] = type_idx
 
       to_java: ->
         parent_jpipe = @parent_pipe?.to_java()
@@ -250,16 +295,13 @@ define ["underscore"], (_) ->
           throw new Error("No such field #{group_field} in incoming") unless _.include(@incoming, group_field)
 
         for k, v of @spec
-          if k isnt "add" and k isnt "sort"
+          if k isnt "add" and k isnt "sort" and k isnt "types"
             throw new Error("Invalid argument #{k} for group by spec")
 
         for add_field in @spec.add
           @outgoing[@outgoing.length] = add_field
 
-        @outgoing_types = {}
-
-        for outgoing_field in @outgoing
-          @outgoing_types[outgoing_field] = -1 # Type.UNKNOWN
+        @validate_types(@spec)
 
       to_java: (parent_pipe) ->
         parent_jpipe = @parent_pipe?.to_java()

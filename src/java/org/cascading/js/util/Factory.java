@@ -99,7 +99,7 @@ public class Factory {
         return flow;
     }
 
-    public void run() throws InterruptedException {
+    public void run() {
         lastFlow.complete();
     }
 }
