@@ -367,26 +367,30 @@ public class V8TupleBuffer {
 
             int dataOffset = fieldDataOffsets[set.idx][iField];
 
-            // Hacky, can't use .idx in switch
-            switch (jsType) {
-                case 0: // INT
-                    intData[dataOffset][entryIndex] = ((Number)val).intValue();
-                    break;
-                case 1: // LONG
-                    longData[dataOffset][entryIndex] = ((Number)val).longValue();
-                    break;
-                case 2: // BOOL
-                    boolData[dataOffset][entryIndex] = (Boolean)val;
-                    break;
-                case 3: // DOUBLE
-                    doubleData[dataOffset][entryIndex] = ((Number)val).doubleValue();
-                    break;
-                case 4: // DATE
-                    dateData[dataOffset][entryIndex] = (Date)val;
-                    break;
-                case 5: // STRING
-                    stringData[dataOffset][entryIndex] = (String)val;
-                    break;
+            try {
+                // Hacky, can't use .idx in switch
+                switch (jsType) {
+                    case 0: // INT
+                        intData[dataOffset][entryIndex] = ((Number)val).intValue();
+                        break;
+                    case 1: // LONG
+                        longData[dataOffset][entryIndex] = ((Number)val).longValue();
+                        break;
+                    case 2: // BOOL
+                        boolData[dataOffset][entryIndex] = (Boolean)val;
+                        break;
+                    case 3: // DOUBLE
+                        doubleData[dataOffset][entryIndex] = ((Number)val).doubleValue();
+                        break;
+                    case 4: // DATE
+                        dateData[dataOffset][entryIndex] = (Date)val;
+                        break;
+                    case 5: // STRING
+                        stringData[dataOffset][entryIndex] = (String)val;
+                        break;
+                }
+            } catch (ClassCastException e) {
+                throw new RuntimeException("Error casting field " + iField + " value " + val + " to " + jsType);
             }
         }
     }

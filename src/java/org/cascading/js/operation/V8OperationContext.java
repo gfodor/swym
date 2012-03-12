@@ -3,33 +3,38 @@ package org.cascading.js.operation;
 import cascading.tuple.Fields;
 import cascading.tuple.TupleEntry;
 import cascading.tuple.TupleEntryCollector;
+import lu.flier.script.V8Function;
 import lu.flier.script.V8Object;
 import lu.flier.script.V8ScriptEngine;
 import org.cascading.js.util.Environment;
+
+import javax.script.ScriptException;
+import java.util.Map;
 
 public class V8OperationContext {
     private V8TupleBuffer tupleBuffer;
     private Environment environment;
     private TupleEntryCollector outputEntryCollector;
+    private V8Function flushToV8;
 
     public Environment getEnvironment() {
         return environment;
     }
 
-    public V8OperationContext(Environment environment, V8Object v8PipeClass, int pipeId, Fields groupingFields, Fields argumentFields, Fields resultFields) {
+    public V8OperationContext(Environment environment, V8Object v8PipeClass, int pipeId, Fields groupingFields, Fields argumentFields, Fields resultFields, Map<String, V8TupleBuffer.JSType> typeMap) {
         this.environment = environment;
         V8ScriptEngine eng = environment.getEngine();
 
-        tupleBuffer = new V8TupleBuffer(eng, groupingFields, argumentFields, null);
+        tupleBuffer = new V8TupleBuffer(eng, groupingFields, argumentFields, typeMap);
 
-        /*V8Function emitCallback = eng.createFunction(this, "emit");
-
-        argumentProcessor = (V8Function)environment.invokeMethod(v8PipeClass, "get_argument_processor",
-                this.tupleTransfer.getGroupTuple(), this.tupleTransfer.getArgumentTuple(), emitCallback, pipeId);
-
-        eng.compile("var foo = function() { }").eval();
-        Bindings scope = eng.getBindings(ScriptContext.ENGINE_SCOPE);
-        argumentProcessor = (V8Function)scope.get("foo");*/
+        try {
+            flushToV8 = (V8Function)environment.invokeMethod(v8PipeClass, "get_flush_routine",
+                    tupleBuffer.getBuffer(), eng.createFunction(this, "flushFromV8"), pipeId);
+        } catch (NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        } catch (ScriptException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public void setOutputEntryCollector(TupleEntryCollector out) {
@@ -52,8 +57,12 @@ public class V8OperationContext {
 
     public void flush() {
         this.tupleBuffer.fillV8Arrays();
-        // TODO fire routine
+        flushToV8.invokeVoid();
         this.tupleBuffer.clear();
+    }
+
+    public void flushFromV8() {
+        System.out.println("Flushing from V8");
     }
 
     public void closeGroup() {

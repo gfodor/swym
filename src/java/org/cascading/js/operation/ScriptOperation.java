@@ -11,6 +11,8 @@ import org.cascading.js.util.Environment;
 
 import javax.script.ScriptException;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 public abstract class ScriptOperation extends BaseOperation<V8OperationContext> {
     protected Environment.EnvironmentArgs environmentArgs;
@@ -61,8 +63,14 @@ public abstract class ScriptOperation extends BaseOperation<V8OperationContext> 
             V8Object v8PipeClass = (V8Object)env.extractObject("__v8PipeClass");
             env.evaluateScript("delete __v8PipeClass");
 
+            Map<String, V8TupleBuffer.JSType> typeMap = new HashMap<String, V8TupleBuffer.JSType>();
+            typeMap.put("word", V8TupleBuffer.JSType.STRING);
+            typeMap.put("line", V8TupleBuffer.JSType.STRING);
+            typeMap.put("count", V8TupleBuffer.JSType.INT);
+            typeMap.put("offset", V8TupleBuffer.JSType.STRING);
+
             V8OperationContext ctx = new V8OperationContext(env, v8PipeClass, pipeId, getGroupingFields(),
-                    operationCall.getArgumentFields().subtract(getGroupingFields()), resultFields);
+                    operationCall.getArgumentFields().subtract(getGroupingFields()), resultFields, typeMap);
 
             operationCall.setContext(ctx);
 

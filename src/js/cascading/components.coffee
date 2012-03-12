@@ -158,27 +158,26 @@ define ["underscore"], (_) ->
           out_field_data_offsets[i_field] = offset
           out_field_types[i_field] = type_idx
 
-          pipe.out_obj[field] = ((type_idx, offset) ->
-            (val) ->
+          do (type_idx, offset) ->
+            pipe.out_obj[field] = (val) ->
               pipe.out_buffers[type_idx][offset] = val
-          )(type_idx, offset)
 
           current_offsets[type_idx] += 1
 
-      @get_group_start_processor: (group_tuple, argument_tuple, emit, pipe_id) =>
-        out = @pipes[pipe_id].out_obj
-        f = @pipes[pipe_id].initializer
-        -> #f(group_tuple, argument_tuple, out, emit)
+      @get_flush_routine: (in_buffer, emit, pipe_id) =>
+        initializer = @pipes[pipe_id].initializer
+        processor = @pipes[pipe_id].processor
+        finalizer = @pipes[pipe_id].finalizer
+        ->
 
-      @get_argument_processor: (group_tuple, argument_tuple, emit, pipe_id) ->
-        -> #f(group_tuple, argument_tuple, out, emit)
-        #out = @pipes[pipe_id].out_obj
-        #f = @pipes[pipe_id].processor
+          while true
+            count = 0
 
-      @get_group_end_processor: (group_tuple, argument_tuple, emit, pipe_id) =>
-        out = @pipes[pipe_id].out_obj
-        f = @pipes[pipe_id].finalizer
-        -> #f(group_tuple, argument_tuple, out, emit)
+            while true
+              count += 1
+              break unless in_buffer.next_arg()
+
+            break unless in_buffer.next_group()
 
       is_pipe: true
 
