@@ -23,7 +23,7 @@ public class V8TupleBufferTest {
     private V8ScriptEngine eng;
 
     @Test
-    public void baselineTest() throws ScriptException, IOException {
+    public void testBufferAsOutput() throws ScriptException, IOException {
         Fields groupFields = new Fields("gk_s", "gk_i");
         Fields argFields = new Fields("i", "d", "b", "s", "i2");
 
@@ -31,27 +31,20 @@ public class V8TupleBufferTest {
         env.start(new Environment.EnvironmentArgs(null, Environment.EnvironmentArgs.Mode.SPECS));
         this.eng = env.getEngine();
 
-        Map<String, V8TupleBuffer.JSType> typeMap = new HashMap<String, V8TupleBuffer.JSType>();
-        typeMap.put("gk_s", V8TupleBuffer.JSType.STRING);
-        typeMap.put("gk_i", V8TupleBuffer.JSType.INT);
-        typeMap.put("i", V8TupleBuffer.JSType.INT);
-        typeMap.put("d", V8TupleBuffer.JSType.DOUBLE);
-        typeMap.put("b", V8TupleBuffer.JSType.BOOL);
-        typeMap.put("s", V8TupleBuffer.JSType.STRING);
-        typeMap.put("i2", V8TupleBuffer.JSType.INT);
-        V8TupleBuffer b = new V8TupleBuffer(env.getEngine(), groupFields, argFields, typeMap);
+        Map<String, JSType> typeMap = new HashMap<String, JSType>();
+        typeMap.put("gk_s", JSType.STRING);
+        typeMap.put("gk_i", JSType.INT);
+        typeMap.put("i", JSType.INT);
+        typeMap.put("d", JSType.DOUBLE);
+        typeMap.put("b", JSType.BOOL);
+        typeMap.put("s", JSType.STRING);
+        typeMap.put("i2", JSType.INT);
+        V8TupleBuffer b = V8TupleBuffer.newOutput(env.getEngine(), groupFields, argFields, typeMap);
 
         eng.compile("var buf; ").eval();
         Bindings scope = eng.getBindings(ScriptContext.ENGINE_SCOPE);
 
         scope.put("buf", b.getBuffer());
-
-        /*assertNull(eng.eval("group.gk_s()"));
-        assertNull(eng.eval("group.gk_i()"));
-        assertNull(eng.eval("arg.i()"));
-        assertNull(eng.eval("arg.d()"));
-        assertNull(eng.eval("arg.b()"));
-        assertNull(eng.eval("arg.s()"));*/
 
         addGroup(b, "hello", null);
         addArgument(b, 123, null, false, null, 444);

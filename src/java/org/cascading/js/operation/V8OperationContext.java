@@ -6,13 +6,16 @@ import cascading.tuple.TupleEntryCollector;
 import lu.flier.script.V8Function;
 import lu.flier.script.V8Object;
 import lu.flier.script.V8ScriptEngine;
+import org.cascading.js.JSType;
 import org.cascading.js.util.Environment;
 
 import javax.script.ScriptException;
 import java.util.Map;
 
 public class V8OperationContext {
-    private V8TupleBuffer tupleBuffer;
+    private V8TupleBuffer outTupleBuffer;
+    private V8TupleBuffer inTupleBuffer;
+
     private Environment environment;
     private TupleEntryCollector outputEntryCollector;
     private V8Function flushToV8;
@@ -21,15 +24,16 @@ public class V8OperationContext {
         return environment;
     }
 
-    public V8OperationContext(Environment environment, V8Object v8PipeClass, int pipeId, Fields groupingFields, Fields argumentFields, Fields resultFields, Map<String, V8TupleBuffer.JSType> typeMap) {
+    public V8OperationContext(Environment environment, V8Object v8PipeClass, int pipeId, Fields groupingFields, Fields argumentFields, Fields resultFields, Map<String, JSType> typeMap) {
         this.environment = environment;
         V8ScriptEngine eng = environment.getEngine();
 
-        tupleBuffer = new V8TupleBuffer(eng, groupingFields, argumentFields, typeMap);
+        outTupleBuffer = V8TupleBuffer.newOutput(eng, groupingFields, argumentFields, typeMap);
+        inTupleBuffer = V8TupleBuffer.newInput(eng, resultFields, typeMap);
 
         try {
             flushToV8 = (V8Function)environment.invokeMethod(v8PipeClass, "get_flush_routine",
-                    tupleBuffer.getBuffer(), eng.createFunction(this, "flushFromV8"), pipeId);
+                    outTupleBuffer.getBuffer(), eng.createFunction(this, "flushFromV8"), pipeId);
         } catch (NoSuchMethodException e) {
             throw new RuntimeException(e);
         } catch (ScriptException e) {
@@ -44,21 +48,21 @@ public class V8OperationContext {
     }
 
     public void addArgument(TupleEntry argument) {
-        this.tupleBuffer.addArgument(argument);
+        this.outTupleBuffer.addArgument(argument);
     }
 
     public void addGroup(TupleEntry group) {
-        this.tupleBuffer.addGroup(group);
+        this.outTupleBuffer.addGroup(group);
     }
 
     public boolean isFull() {
-        return this.tupleBuffer.isFull();
+        return this.outTupleBuffer.isFullForArguments();
     }
 
-    public void flush() {
-        this.tupleBuffer.fillV8Arrays();
+    public void flushToV8() {
+        this.outTupleBuffer.fillV8Arrays();
         flushToV8.invokeVoid();
-        this.tupleBuffer.clear();
+        this.outTupleBuffer.clear();
     }
 
     public void flushFromV8() {
@@ -66,7 +70,7 @@ public class V8OperationContext {
     }
 
     public void closeGroup() {
-        this.tupleBuffer.closeGroup();
+        this.outTupleBuffer.closeGroup();
     }
 
 }

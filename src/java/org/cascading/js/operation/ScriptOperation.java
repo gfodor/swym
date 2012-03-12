@@ -7,6 +7,7 @@ import cascading.tuple.Tuple;
 import cascading.tuple.TupleEntryCollector;
 import lu.flier.script.V8Array;
 import lu.flier.script.V8Object;
+import org.cascading.js.JSType;
 import org.cascading.js.util.Environment;
 
 import javax.script.ScriptException;
@@ -63,11 +64,11 @@ public abstract class ScriptOperation extends BaseOperation<V8OperationContext> 
             V8Object v8PipeClass = (V8Object)env.extractObject("__v8PipeClass");
             env.evaluateScript("delete __v8PipeClass");
 
-            Map<String, V8TupleBuffer.JSType> typeMap = new HashMap<String, V8TupleBuffer.JSType>();
-            typeMap.put("word", V8TupleBuffer.JSType.STRING);
-            typeMap.put("line", V8TupleBuffer.JSType.STRING);
-            typeMap.put("count", V8TupleBuffer.JSType.INT);
-            typeMap.put("offset", V8TupleBuffer.JSType.STRING);
+            Map<String, JSType> typeMap = new HashMap<String, JSType>();
+            typeMap.put("word", JSType.STRING);
+            typeMap.put("line", JSType.STRING);
+            typeMap.put("count", JSType.INT);
+            typeMap.put("offset", JSType.STRING);
 
             V8OperationContext ctx = new V8OperationContext(env, v8PipeClass, pipeId, getGroupingFields(),
                     operationCall.getArgumentFields().subtract(getGroupingFields()), resultFields, typeMap);
