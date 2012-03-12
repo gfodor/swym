@@ -210,7 +210,7 @@ public class V8TupleBuffer {
 
         setTupleAccessor("next_group",
           "var group_sizes = this[2]; var i_group_rle = this.i_group_rle; " +
-          "var primary = group_sizes[this.i_group_rle]; " +
+          "var primary = group_sizes[i_group_rle]; " +
           "if (primary === 2147483647) { " +
           "  if (this.i_single_group_count >= group_sizes[i_group_rle + 1] - 1) { " +
           "    if (group_sizes[i_group_rle + 2] !== -1) { " +
