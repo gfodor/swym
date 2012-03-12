@@ -42,7 +42,7 @@ public class V8TupleBufferTest {
         eng.compile("var buf; ").eval();
         Bindings scope = eng.getBindings(ScriptContext.ENGINE_SCOPE);
 
-        scope.put("group", b.getBuffer());
+        scope.put("buf", b.getBuffer());
 
         /*assertNull(eng.eval("group.gk_s()"));
         assertNull(eng.eval("group.gk_i()"));
@@ -73,108 +73,122 @@ public class V8TupleBufferTest {
         addArgument(b, 777, 0.11, null, null, 111);
         addGroup(b, "another", 123);
         addArgument(b, 777, 0.11, null, null, 111);
+        b.closeGroup();
 
         b.fillV8Arrays();
 
-        assertEquals(eng.eval("group.gk_s()"), "hello");
-        assertEquals(eng.eval("group.gk_i()"), null);
-        assertEquals(eng.eval("arg.i()"), 123);
-        assertEquals(eng.eval("arg.d()"), null);
-        assertEquals(eng.eval("arg.b()"), false);
-        assertEquals(eng.eval("arg.s()"), null);
+        assertEquals(eng.eval("buf.gk_s()"), "hello");
+        assertEquals(eng.eval("buf.gk_i()"), null);
+        assertEquals(eng.eval("buf.i()"), 123);
+        assertEquals(eng.eval("buf.d()"), null);
+        assertEquals(eng.eval("buf.b()"), false);
+        assertEquals(eng.eval("buf.s()"), null);
+        assertNexts(b, true, true);
         nextArg(b);
-        assertEquals(eng.eval("group.gk_s()"), "hello");
-        assertEquals(eng.eval("group.gk_i()"), null);
-        assertEquals(eng.eval("arg.i()"), 456);
-        assertEquals(eng.eval("arg.d()"), null);
-        assertEquals(eng.eval("arg.b()"), false);
-        assertEquals(eng.eval("arg.s()"), "something");
+        assertEquals(eng.eval("buf.gk_s()"), "hello");
+        assertEquals(eng.eval("buf.gk_i()"), null);
+        assertEquals(eng.eval("buf.i()"), 456);
+        assertEquals(eng.eval("buf.d()"), null);
+        assertEquals(eng.eval("buf.b()"), false);
+        assertEquals(eng.eval("buf.s()"), "something");
+        assertNexts(b, true, true);
         nextArg(b);
-        assertEquals(eng.eval("group.gk_s()"), "hello");
-        assertEquals(eng.eval("group.gk_i()"), null);
-        assertEquals(eng.eval("arg.i()"), 789);
-        assertEquals(eng.eval("arg.d()"), null);
-        assertEquals(eng.eval("arg.b()"), false);
-        assertEquals(eng.eval("arg.s()"), "another");
+        assertEquals(eng.eval("buf.gk_s()"), "hello");
+        assertEquals(eng.eval("buf.gk_i()"), null);
+        assertEquals(eng.eval("buf.i()"), 789);
+        assertEquals(eng.eval("buf.d()"), null);
+        assertEquals(eng.eval("buf.b()"), false);
+        assertEquals(eng.eval("buf.s()"), "another");
+        assertNexts(b, true, true);
         nextArg(b);
-        assertEquals(eng.eval("group.gk_s()"), "hello");
-        assertEquals(eng.eval("group.gk_i()"), null);
-        assertEquals(eng.eval("arg.i()"), 999);
-        assertEquals(eng.eval("arg.d()"), 0.3);
-        assertEquals(eng.eval("arg.b()"), true);
-        assertEquals(eng.eval("arg.s()"), "other");
+        assertEquals(eng.eval("buf.gk_s()"), "hello");
+        assertEquals(eng.eval("buf.gk_i()"), null);
+        assertEquals(eng.eval("buf.i()"), 999);
+        assertEquals(eng.eval("buf.d()"), 0.3);
+        assertEquals(eng.eval("buf.b()"), true);
+        assertEquals(eng.eval("buf.s()"), "other");
+        assertNexts(b, true, false);
         nextGroup(b);
 
-        assertEquals(eng.eval("group.gk_s()"), "world");
-        assertEquals(eng.eval("group.gk_i()"), null);
-        assertEquals(eng.eval("arg.i()"), 321);
-        assertEquals(eng.eval("arg.d()"), 0.44);
-        assertEquals(eng.eval("arg.b()"), true);
-        assertEquals(eng.eval("arg.s()"), "third");
+        assertEquals(eng.eval("buf.gk_s()"), "world");
+        assertEquals(eng.eval("buf.gk_i()"), null);
+        assertEquals(eng.eval("buf.i()"), 321);
+        assertEquals(eng.eval("buf.d()"), 0.44);
+        assertEquals(eng.eval("buf.b()"), true);
+        assertEquals(eng.eval("buf.s()"), "third");
+        assertNexts(b, true, true);
         nextArg(b);
-        assertEquals(eng.eval("arg.i()"), 432);
-        assertEquals(eng.eval("arg.d()"), 0.55);
-        assertEquals(eng.eval("arg.b()"), true);
-        assertEquals(eng.eval("arg.s()"), "fourth");
+        assertEquals(eng.eval("buf.i()"), 432);
+        assertEquals(eng.eval("buf.d()"), 0.55);
+        assertEquals(eng.eval("buf.b()"), true);
+        assertEquals(eng.eval("buf.s()"), "fourth");
+        assertNexts(b, true, false);
         nextGroup(b);
 
-        assertEquals(eng.eval("group.gk_s()"), "test");
-        assertEquals(eng.eval("group.gk_i()"), 123);
-        assertEquals(eng.eval("arg.i()"), 777);
-        assertEquals(eng.eval("arg.d()"), 0.11);
-        assertEquals(eng.eval("arg.b()"), null);
-        assertEquals(eng.eval("arg.s()"), null);
+        assertEquals(eng.eval("buf.gk_s()"), "test");
+        assertEquals(eng.eval("buf.gk_i()"), 123);
+        assertEquals(eng.eval("buf.i()"), 777);
+        assertEquals(eng.eval("buf.d()"), 0.11);
+        assertEquals(eng.eval("buf.b()"), null);
+        assertEquals(eng.eval("buf.s()"), null);
+        assertNexts(b, true, true);
         nextArg(b);
-        assertEquals(eng.eval("arg.i()"), 888);
-        assertEquals(eng.eval("arg.d()"), 0.22);
-        assertEquals(eng.eval("arg.b()"), true);
-        assertEquals(eng.eval("arg.s()"), "sixth");
+        assertEquals(eng.eval("buf.i()"), 888);
+        assertEquals(eng.eval("buf.d()"), 0.22);
+        assertEquals(eng.eval("buf.b()"), true);
+        assertEquals(eng.eval("buf.s()"), "sixth");
+        assertNexts(b, true, false);
         nextGroup(b);
 
-        assertEquals(eng.eval("group.gk_s()"), "final");
-        assertEquals(eng.eval("group.gk_i()"), 123);
-        assertEquals(eng.eval("arg.i()"), 777);
-        assertEquals(eng.eval("arg.d()"), 0.11);
-        assertEquals(eng.eval("arg.b()"), null);
-        assertEquals(eng.eval("arg.s()"), null);
+        assertEquals(eng.eval("buf.gk_s()"), "final");
+        assertEquals(eng.eval("buf.gk_i()"), 123);
+        assertEquals(eng.eval("buf.i()"), 777);
+        assertEquals(eng.eval("buf.d()"), 0.11);
+        assertEquals(eng.eval("buf.b()"), null);
+        assertEquals(eng.eval("buf.s()"), null);
+        assertNexts(b, true, false);
         nextGroup(b);
 
-        assertEquals(eng.eval("group.gk_s()"), "countdown");
-        assertEquals(eng.eval("group.gk_i()"), 123);
-        assertEquals(eng.eval("arg.i()"), 777);
-        assertEquals(eng.eval("arg.d()"), 0.11);
-        assertEquals(eng.eval("arg.b()"), null);
-        assertEquals(eng.eval("arg.s()"), null);
+        assertEquals(eng.eval("buf.gk_s()"), "countdown");
+        assertEquals(eng.eval("buf.gk_i()"), 123);
+        assertEquals(eng.eval("buf.i()"), 777);
+        assertEquals(eng.eval("buf.d()"), 0.11);
+        assertEquals(eng.eval("buf.b()"), null);
+        assertEquals(eng.eval("buf.s()"), null);
+        assertNexts(b, true, false);
         nextGroup(b);
 
-        assertEquals(eng.eval("group.gk_s()"), "here");
-        assertEquals(eng.eval("group.gk_i()"), 123);
-        assertEquals(eng.eval("arg.i()"), 777);
-        assertEquals(eng.eval("arg.d()"), 0.11);
-        assertEquals(eng.eval("arg.b()"), null);
-        assertEquals(eng.eval("arg.s()"), null);
+        assertEquals(eng.eval("buf.gk_s()"), "here");
+        assertEquals(eng.eval("buf.gk_i()"), 123);
+        assertEquals(eng.eval("buf.i()"), 777);
+        assertEquals(eng.eval("buf.d()"), 0.11);
+        assertEquals(eng.eval("buf.b()"), null);
+        assertEquals(eng.eval("buf.s()"), null);
+        assertNexts(b, true, false);
         nextGroup(b);
 
-        assertEquals(eng.eval("group.gk_s()"), "whee");
-        assertEquals(eng.eval("group.gk_i()"), 123);
-        assertEquals(eng.eval("arg.i()"), 777);
-        assertEquals(eng.eval("arg.d()"), 0.11);
-        assertEquals(eng.eval("arg.b()"), null);
-        assertEquals(eng.eval("arg.s()"), null);
+        assertEquals(eng.eval("buf.gk_s()"), "whee");
+        assertEquals(eng.eval("buf.gk_i()"), 123);
+        assertEquals(eng.eval("buf.i()"), 777);
+        assertEquals(eng.eval("buf.d()"), 0.11);
+        assertEquals(eng.eval("buf.b()"), null);
+        assertEquals(eng.eval("buf.s()"), null);
+        assertNexts(b, true, true);
         nextArg(b);
-        assertEquals(eng.eval("arg.i()"), 777);
-        assertEquals(eng.eval("arg.d()"), 0.11);
-        assertEquals(eng.eval("arg.b()"), null);
-        assertEquals(eng.eval("arg.s()"), null);
+        assertEquals(eng.eval("buf.i()"), 777);
+        assertEquals(eng.eval("buf.d()"), 0.11);
+        assertEquals(eng.eval("buf.b()"), null);
+        assertEquals(eng.eval("buf.s()"), null);
+        assertNexts(b, true, false);
         nextGroup(b);
 
-        assertEquals(eng.eval("group.gk_s()"), "another");
-        assertEquals(eng.eval("group.gk_i()"), 123);
-        assertEquals(eng.eval("arg.i()"), 777);
-        assertEquals(eng.eval("arg.d()"), 0.11);
-        assertEquals(eng.eval("arg.b()"), null);
-        assertEquals(eng.eval("arg.s()"), null);
-        nextArg(b);
+        assertEquals(eng.eval("buf.gk_s()"), "another");
+        assertEquals(eng.eval("buf.gk_i()"), 123);
+        assertEquals(eng.eval("buf.i()"), 777);
+        assertEquals(eng.eval("buf.d()"), 0.11);
+        assertEquals(eng.eval("buf.b()"), null);
+        assertEquals(eng.eval("buf.s()"), null);
+        assertNexts(b, false, false);
 
         env.shutdown();
     }
@@ -199,6 +213,11 @@ public class V8TupleBufferTest {
         } catch (ScriptException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private void assertNexts(V8TupleBuffer buf, boolean nextGroup, boolean nextArg) {
+        assertEquals(hasNextArg(buf), nextArg);
+        assertEquals(hasNextGroup(buf), nextGroup);
     }
 
     private boolean hasNextArg(V8TupleBuffer buf) {
