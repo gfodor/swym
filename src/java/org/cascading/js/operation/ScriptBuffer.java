@@ -24,10 +24,11 @@ public class ScriptBuffer extends ScriptOperation implements Buffer<V8OperationC
     }
 
     long timeInInvoke = 0;
-    long numberInvokes = 0;
 
     long timeSetGroup = 0;
     long timeSetArg = 0;
+
+    public static String STUB_FIELD_PREFIX = "___swym_stub_gk_";
 
     public void operate(FlowProcess flowProcess, BufferCall<V8OperationContext> call) {
         V8OperationContext ctx = call.getContext();

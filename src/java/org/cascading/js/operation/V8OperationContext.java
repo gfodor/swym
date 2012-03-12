@@ -53,7 +53,7 @@ public class V8OperationContext {
         this.environment = environment;
         V8ScriptEngine eng = environment.getEngine();
 
-        tupleBuffer = new V8TupleBuffer(eng, groupingFields, argumentFields);
+        tupleBuffer = new V8TupleBuffer(eng, groupingFields, argumentFields, null);
         outInt = eng.createArray(new int[DEFAULT_INCOMING_BUFFER_SIZE]);
         outLong = eng.createArray(new long[DEFAULT_INCOMING_BUFFER_SIZE]);
         outBool = eng.createArray(new boolean[DEFAULT_INCOMING_BUFFER_SIZE]);

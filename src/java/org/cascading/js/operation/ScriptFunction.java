@@ -16,7 +16,7 @@ public class ScriptFunction extends ScriptOperation implements Function<V8Operat
         TupleEntry entry = call.getArguments();
         V8OperationContext ctx = call.getContext();
 
-        ctx.setArgument(entry);
+        ctx.addArgument(entry);
     }
 
     public void cleanup(cascading.flow.FlowProcess flowProcess, cascading.operation.OperationCall<V8OperationContext> operationCall) {
