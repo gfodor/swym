@@ -16,6 +16,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class V8TupleBufferTest {
     private V8ScriptEngine eng;
@@ -83,32 +85,29 @@ public class V8TupleBufferTest {
         assertEquals(eng.eval("buf.d()"), null);
         assertEquals(eng.eval("buf.b()"), false);
         assertEquals(eng.eval("buf.s()"), null);
-        assertNexts(b, true, true);
-        nextArg(b);
+        assertTrue(nextArg(b));
         assertEquals(eng.eval("buf.gk_s()"), "hello");
         assertEquals(eng.eval("buf.gk_i()"), null);
         assertEquals(eng.eval("buf.i()"), 456);
         assertEquals(eng.eval("buf.d()"), null);
         assertEquals(eng.eval("buf.b()"), false);
         assertEquals(eng.eval("buf.s()"), "something");
-        assertNexts(b, true, true);
-        nextArg(b);
+        assertTrue(nextArg(b));
         assertEquals(eng.eval("buf.gk_s()"), "hello");
         assertEquals(eng.eval("buf.gk_i()"), null);
         assertEquals(eng.eval("buf.i()"), 789);
         assertEquals(eng.eval("buf.d()"), null);
         assertEquals(eng.eval("buf.b()"), false);
         assertEquals(eng.eval("buf.s()"), "another");
-        assertNexts(b, true, true);
-        nextArg(b);
+        assertTrue(nextArg(b));
         assertEquals(eng.eval("buf.gk_s()"), "hello");
         assertEquals(eng.eval("buf.gk_i()"), null);
         assertEquals(eng.eval("buf.i()"), 999);
         assertEquals(eng.eval("buf.d()"), 0.3);
         assertEquals(eng.eval("buf.b()"), true);
         assertEquals(eng.eval("buf.s()"), "other");
-        assertNexts(b, true, false);
-        nextGroup(b);
+        assertFalse(nextArg(b));
+        assertTrue(nextGroup(b));
 
         assertEquals(eng.eval("buf.gk_s()"), "world");
         assertEquals(eng.eval("buf.gk_i()"), null);
@@ -116,14 +115,13 @@ public class V8TupleBufferTest {
         assertEquals(eng.eval("buf.d()"), 0.44);
         assertEquals(eng.eval("buf.b()"), true);
         assertEquals(eng.eval("buf.s()"), "third");
-        assertNexts(b, true, true);
-        nextArg(b);
+        assertTrue(nextArg(b));
         assertEquals(eng.eval("buf.i()"), 432);
         assertEquals(eng.eval("buf.d()"), 0.55);
         assertEquals(eng.eval("buf.b()"), true);
         assertEquals(eng.eval("buf.s()"), "fourth");
-        assertNexts(b, true, false);
-        nextGroup(b);
+        assertFalse(nextArg(b));
+        assertTrue(nextGroup(b));
 
         assertEquals(eng.eval("buf.gk_s()"), "test");
         assertEquals(eng.eval("buf.gk_i()"), 123);
@@ -131,14 +129,13 @@ public class V8TupleBufferTest {
         assertEquals(eng.eval("buf.d()"), 0.11);
         assertEquals(eng.eval("buf.b()"), null);
         assertEquals(eng.eval("buf.s()"), null);
-        assertNexts(b, true, true);
-        nextArg(b);
+        assertTrue(nextArg(b));
         assertEquals(eng.eval("buf.i()"), 888);
         assertEquals(eng.eval("buf.d()"), 0.22);
         assertEquals(eng.eval("buf.b()"), true);
         assertEquals(eng.eval("buf.s()"), "sixth");
-        assertNexts(b, true, false);
-        nextGroup(b);
+        assertFalse(nextArg(b));
+        assertTrue(nextGroup(b));
 
         assertEquals(eng.eval("buf.gk_s()"), "final");
         assertEquals(eng.eval("buf.gk_i()"), 123);
@@ -146,8 +143,8 @@ public class V8TupleBufferTest {
         assertEquals(eng.eval("buf.d()"), 0.11);
         assertEquals(eng.eval("buf.b()"), null);
         assertEquals(eng.eval("buf.s()"), null);
-        assertNexts(b, true, false);
-        nextGroup(b);
+        assertFalse(nextArg(b));
+        assertTrue(nextGroup(b));
 
         assertEquals(eng.eval("buf.gk_s()"), "countdown");
         assertEquals(eng.eval("buf.gk_i()"), 123);
@@ -155,8 +152,8 @@ public class V8TupleBufferTest {
         assertEquals(eng.eval("buf.d()"), 0.11);
         assertEquals(eng.eval("buf.b()"), null);
         assertEquals(eng.eval("buf.s()"), null);
-        assertNexts(b, true, false);
-        nextGroup(b);
+        assertFalse(nextArg(b));
+        assertTrue(nextGroup(b));
 
         assertEquals(eng.eval("buf.gk_s()"), "here");
         assertEquals(eng.eval("buf.gk_i()"), 123);
@@ -164,8 +161,8 @@ public class V8TupleBufferTest {
         assertEquals(eng.eval("buf.d()"), 0.11);
         assertEquals(eng.eval("buf.b()"), null);
         assertEquals(eng.eval("buf.s()"), null);
-        assertNexts(b, true, false);
-        nextGroup(b);
+        assertFalse(nextArg(b));
+        assertTrue(nextGroup(b));
 
         assertEquals(eng.eval("buf.gk_s()"), "whee");
         assertEquals(eng.eval("buf.gk_i()"), 123);
@@ -173,14 +170,13 @@ public class V8TupleBufferTest {
         assertEquals(eng.eval("buf.d()"), 0.11);
         assertEquals(eng.eval("buf.b()"), null);
         assertEquals(eng.eval("buf.s()"), null);
-        assertNexts(b, true, true);
-        nextArg(b);
+        assertTrue(nextArg(b));
         assertEquals(eng.eval("buf.i()"), 777);
         assertEquals(eng.eval("buf.d()"), 0.11);
         assertEquals(eng.eval("buf.b()"), null);
         assertEquals(eng.eval("buf.s()"), null);
-        assertNexts(b, true, false);
-        nextGroup(b);
+        assertFalse(nextArg(b));
+        assertTrue(nextGroup(b));
 
         assertEquals(eng.eval("buf.gk_s()"), "another");
         assertEquals(eng.eval("buf.gk_i()"), 123);
@@ -188,36 +184,32 @@ public class V8TupleBufferTest {
         assertEquals(eng.eval("buf.d()"), 0.11);
         assertEquals(eng.eval("buf.b()"), null);
         assertEquals(eng.eval("buf.s()"), null);
-        assertNexts(b, false, false);
+        assertFalse(nextArg(b));
+        assertFalse(nextGroup(b));
 
         env.shutdown();
     }
 
-    private void nextGroup(V8TupleBuffer buf) {
+    private boolean nextGroup(V8TupleBuffer buf) {
         try {
             eng.compile("var __v8TupleTransferBuffer").eval();
             Bindings scope = eng.getBindings(ScriptContext.ENGINE_SCOPE);
             scope.put("__v8TupleTransferBuffer", buf.getBuffer());
-            eng.compile("__v8TupleTransferBuffer.next_group()").eval();
+            return (Boolean)eng.compile("__v8TupleTransferBuffer.next_group()").eval();
         } catch (ScriptException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private void nextArg(V8TupleBuffer buf) {
+    private boolean nextArg(V8TupleBuffer buf) {
         try {
             eng.compile("var __v8TupleTransferBuffer").eval();
             Bindings scope = eng.getBindings(ScriptContext.ENGINE_SCOPE);
             scope.put("__v8TupleTransferBuffer", buf.getBuffer());
-            eng.compile("__v8TupleTransferBuffer.next_arg()").eval();
+            return (Boolean)eng.compile("__v8TupleTransferBuffer.next_arg()").eval();
         } catch (ScriptException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private void assertNexts(V8TupleBuffer buf, boolean nextGroup, boolean nextArg) {
-        assertEquals(hasNextArg(buf), nextArg);
-        assertEquals(hasNextGroup(buf), nextGroup);
     }
 
     private boolean hasNextArg(V8TupleBuffer buf) {

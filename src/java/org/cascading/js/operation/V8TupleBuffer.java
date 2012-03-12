@@ -208,24 +208,31 @@ public class V8TupleBuffer {
             throw new RuntimeException(e);
         }
 
-        setTupleAccessor("next_group", "this.i_group += 1; this.i_arg += 1; this.i_arg_for_group = 0; var group_sizes = this[2];" +
-                         "if (group_sizes[this.i_group_rle] === 2147483647) { " +
-                         "  if (this.i_single_group_count >= group_sizes[this.i_group_rle + 1] - 1) { this.i_group_rle += 2; this.i_single_group_count = 0; } " +
-                         "  else { this.i_single_group_count += 1; }" +
-                         "} else { this.i_group_rle += 1 }");
+        setTupleAccessor("next_group",
+          "var group_sizes = this[2]; var i_group_rle = this.i_group_rle; " +
+          "var primary = group_sizes[this.i_group_rle]; " +
+          "if (primary === 2147483647) { " +
+          "  if (this.i_single_group_count >= group_sizes[i_group_rle + 1] - 1) { " +
+          "    if (group_sizes[i_group_rle + 2] !== -1) { " +
+                  "this.i_group += 1; this.i_arg += 1; this.i_group_rle += 2; this.i_single_group_count = 0; this.i_arg_for_group = 0; return true; " +
+              "} else { return false; }" +
+          "  } else { " +
+          "    this.i_group += 1; this.i_arg += 1; this.i_arg_for_group = 0; this.i_single_group_count += 1; return true; " +
+          "  }" +
+          "} else {" +
+          "  if (group_sizes[i_group_rle + 1] !== -1) {" +
+          "    this.i_group += 1; this.i_arg += 1; this.i_group_rle += 1; this.i_arg_for_group = 0; return true; " +
+          "  } else { return false; }" +
+          "} ");
 
-        setTupleAccessor("next_arg", "this.i_arg += 1; this.i_arg_for_group += 1");
-
-        setTupleAccessor("has_next_arg",
+        setTupleAccessor("next_arg",
                 "var i_group_rle = this.i_group_rle; var primary = this[2][i_group_rle]; " +
                 "if (primary === 2147483647) { return false; }" +
-                "else { return primary > this.i_arg_for_group + 1; }");
-
-        setTupleAccessor("has_next_group", "var group_sizes = this[2]; var primary = group_sizes[this.i_group_rle]; " +
-                                           "if (primary === 2147483647) { " +
-                                            "  return this.i_single_group_count < group_sizes[this.i_group_rle] - 1 && " +
-                                                      "group_sizes[this.i_group_rle + 2] !== -1; } " +
-                                           "else { return group_sizes[this.i_group_rle + 1] !== -1}");
+                "else { " +
+                "  if (primary > this.i_arg_for_group + 1) { " +
+                "    this.i_arg += 1; this.i_arg_for_group += 1; return true; " +
+                "   } else { return false; }" +
+                "} ");
 
         clear();
     }
@@ -390,11 +397,11 @@ public class V8TupleBuffer {
         String offsetField = setIdx == Set.GROUP.idx ? "i_group" : "i_arg";
 
         return setTupleAccessor(name,
-                "var i_tuple = this." + offsetField + ";" +
+                "var arr = this[" + setIdx + "]; var i_tuple = this." + offsetField + ";" +
                 "var null_mask_offset = i_tuple * " + numFields + " + " + fieldOffset + ";\n" +
                 "var null_mask_index = Math.floor(null_mask_offset / 32); var mask = 0x1 << (31 - null_mask_offset % 32);\n" +
-                "return (this[" + setIdx  + "][" + nullMaskArrayIndex + "][null_mask_index] & mask) === mask ? null : " +
-                        "this[" + setIdx + "][" + typeIdx + "][" + dataOffset + "][i_tuple];\n");
+                "return (arr[" + nullMaskArrayIndex + "][null_mask_index] & mask) === mask ? null : " +
+                        "arr[" + typeIdx + "][" + dataOffset + "][i_tuple];\n");
     }
 
     private String getJsCompatibleFieldName(String name) {
