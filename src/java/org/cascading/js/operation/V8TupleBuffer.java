@@ -52,7 +52,9 @@ public class V8TupleBuffer {
 
     final private V8Array v8GroupSizesRLE;
     final private V8Array[] v8NullMasks = new V8Array[FieldSet.values().length];
+
     final private int groupSizeRLEJsIndex = FieldSet.values().length;
+    final private int nullMaskJsArrayIndex = JSType.values().length;
 
     // The buffer is a 4-nested array indexed by [w][x][y][z]
     // w - 0 is group data, 1 is arg data, 2 is group rle data
@@ -69,7 +71,11 @@ public class V8TupleBuffer {
     private final V8Array[][] v8DataArrays = new V8Array[FieldSet.values().length][];
 
     public static V8TupleBuffer newInput(V8ScriptEngine eng, Fields resultFields, Map<String, JSType> typeMap) {
-        return new V8TupleBuffer(eng, new Fields(), new Fields(), resultFields, typeMap);
+        V8TupleBuffer buffer = new V8TupleBuffer(eng, new Fields(), new Fields(), resultFields, typeMap);
+
+        // Initialize v8 arrays of appropriate sizes
+        buffer.fillV8Arrays();
+        return buffer;
     }
 
     public static V8TupleBuffer newOutput(V8ScriptEngine eng, Fields groupingFields, Fields argumentFields, Map<String, JSType> typeMap) {
@@ -179,6 +185,7 @@ public class V8TupleBuffer {
         v8TupleBuffer = eng.createArray(outTupleArray);
         setupAccessors(groupingFields, argumentFields, resultFields, fieldsForSet);
 
+        // Get clear function
         try {
             eng.compile("var __v8Temp = function(b) { b.i_group = 0; b.i_arg = 0; b.i_result = 0; b.i_arg_for_group = 0; " +
                     "b.i_group_rle = 0; b.i_single_group_count = 0; }").eval();
@@ -191,7 +198,31 @@ public class V8TupleBuffer {
             throw new RuntimeException(e);
         }
 
+        // Set flush function
+        addFunctionToTuple("flushFromV8");
+
         clear();
+    }
+
+    private void addFunctionToTuple(String name) {
+        Bindings scope = eng.getBindings(ScriptContext.ENGINE_SCOPE);
+
+        try {
+            eng.compile("var __v8Temp; var __v8Temp2").eval();
+
+            try {
+                scope.put("__v8Temp", eng.createFunction(this, name));
+            } catch (NoSuchMethodException e) {
+                throw new RuntimeException(e);
+            }
+
+            scope.put("__v8Temp2", v8TupleBuffer);
+            eng.eval("__v8Temp2." + getJsCompatibleFieldName(name) + " = __v8Temp");
+            eng.eval("delete(__v8Temp); delete(__v8Temp2);");
+
+        } catch (ScriptException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public V8Array getBuffer() {
@@ -238,7 +269,19 @@ public class V8TupleBuffer {
         } else if (argumentFields.size() > 0) {
             // todo next_arg for non-grouping mode
         } else if (resultFields.size() > 0) {
-            // todo next_result, should call flusher when full
+            setTupleAccessor("next_result",
+               "this.i_result += 1;" +
+               "if (this.i_result >= " + BUFFER_SIZE + ") { " +
+               "  this.flush(); " +
+               "}"
+            );
+
+            setTupleAccessor("flush",
+                    "this.flushFromV8(this.i_result); this.i_result = 0; " +
+                    "for (var i = 0; i < " + (BUFFER_SIZE / 32) + "; i++) { " +
+                    "  this[" + FieldSet.RESULT.idx + "][" + nullMaskJsArrayIndex + "][i] = 0;" +
+                    "}"
+            );
         }
     }
 
@@ -280,6 +323,45 @@ public class V8TupleBuffer {
         }
 
         clear();
+    }
+
+    public void flushFromV8(Object[] args) {
+        this.fillJavaArrays((Integer)args[0]);
+    }
+
+    public void fillJavaArrays(int numberOfTuples) {
+        for (FieldSet set : FieldSet.values()) {
+            final int setIdx = set.idx;
+
+            if (fieldTypes[setIdx].length == 0) continue;
+
+            v8NullMasks[setIdx].toIntArray(jNullMasks[setIdx], numberOfTuples);
+
+            final int[] fieldTypes = this.fieldTypes[setIdx];
+
+            for (int iField = 0; iField < fieldTypes.length; iField++) {
+                switch(fieldTypes[iField]) {
+                    case 0: // INT
+                        v8DataArrays[setIdx][iField].toIntArray(jIntData[setIdx][fieldDataOffsets[setIdx][iField]], numberOfTuples);
+                        break;
+                    case 1: // LONG
+                        v8DataArrays[setIdx][iField].toLongArray(jLongData[setIdx][fieldDataOffsets[setIdx][iField]], numberOfTuples);
+                        break;
+                    case 2: // BOOL
+                        v8DataArrays[setIdx][iField].toBooleanArray(jBoolData[setIdx][fieldDataOffsets[setIdx][iField]], numberOfTuples);
+                        break;
+                    case 3: // DOUBLE
+                        v8DataArrays[setIdx][iField].toDoubleArray(jDoubleData[setIdx][fieldDataOffsets[setIdx][iField]], numberOfTuples);
+                        break;
+                    case 4: // DATE
+                        v8DataArrays[setIdx][iField].toDateArray(jDateData[setIdx][fieldDataOffsets[setIdx][iField]], numberOfTuples);
+                        break;
+                    case 5: // STRING
+                        v8DataArrays[setIdx][iField].toStringArray(jStringData[setIdx][fieldDataOffsets[setIdx][iField]], numberOfTuples);
+                        break;
+                }
+            }
+        }
     }
 
     public void closeGroup() {
@@ -363,13 +445,14 @@ public class V8TupleBuffer {
             final Object val = entry.get(fieldOffsets[iField]);
 
             if (val == null)  {
-                final int fieldOffset = (entryIndex * numFields) + iField;
-                final int maskIndex = fieldOffset / 32;
-                final int shiftWidth = 31 - fieldOffset % 32;
-
-                nullMask[maskIndex] |= (0x1l << shiftWidth);
                 continue;
             }
+
+            final int fieldOffset = (entryIndex * numFields) + iField;
+            final int maskIndex = fieldOffset / 32;
+            final int shiftWidth = 31 - fieldOffset % 32;
+
+            nullMask[maskIndex] |= 0x1l << shiftWidth;
 
             int dataOffset = fieldDataOffsets[set.idx][iField];
 
@@ -415,16 +498,27 @@ public class V8TupleBuffer {
     }
 
     private V8Function setTupleDataAccessor(int setIdx, int typeIdx, int dataOffset, int fieldOffset, String name) {
-        int nullMaskArrayIndex = JSType.values().length;
         int numFields = fieldTypes[setIdx].length;
         String offsetField = getJsSideIndexName(setIdx);
 
+        String setter =
+          "val = arguments[0]; " +
+          "if (val !== null) { " +
+          "  arr[" + nullMaskJsArrayIndex + "][null_mask_index] |= mask;" +
+          "  arr[" + typeIdx + "][" + dataOffset + "][i_tuple] = val; " +
+          "} else { " +
+          "  arr[" + nullMaskJsArrayIndex + "][null_mask_index] &= ~mask; " +
+          "} return val;";
+
+        String getter =
+          "return ((~arr[" + nullMaskJsArrayIndex + "][null_mask_index]) & mask) === mask ? null : " +
+          "       arr[" + typeIdx + "][" + dataOffset + "][i_tuple];";
+
         return setTupleAccessor(name,
                 "var arr = this[" + setIdx + "]; var i_tuple = this." + offsetField + ";" +
-                "var null_mask_offset = i_tuple * " + numFields + " + " + fieldOffset + ";\n" +
-                "var null_mask_index = Math.floor(null_mask_offset / 32); var mask = 0x1 << (31 - null_mask_offset % 32);\n" +
-                "return (arr[" + nullMaskArrayIndex + "][null_mask_index] & mask) === mask ? null : " +
-                        "arr[" + typeIdx + "][" + dataOffset + "][i_tuple];\n");
+                "var null_mask_offset = i_tuple * " + numFields + " + " + fieldOffset + ";" +
+                "var null_mask_index = Math.floor(null_mask_offset / 32); var mask = 0x1 << (31 - null_mask_offset % 32);" +
+                "if (arguments.length > 0) { " + setter + "} else { " + getter + " }");
     }
 
     private String getJsCompatibleFieldName(String name) {

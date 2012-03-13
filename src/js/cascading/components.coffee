@@ -164,7 +164,7 @@ define ["underscore"], (_) ->
 
           current_offsets[type_idx] += 1
 
-      @get_flush_routine: (in_buffer, emit, pipe_id) =>
+      @get_flush_routine: (in_buffer, out_buffer, pipe_id) =>
         initializer = @pipes[pipe_id].initializer
         processor = @pipes[pipe_id].processor
         finalizer = @pipes[pipe_id].finalizer
@@ -177,7 +177,11 @@ define ["underscore"], (_) ->
               count += 1
               break unless in_buffer.next_arg()
 
+            out_buffer.count(count)
+
             break unless in_buffer.next_group()
+
+          out_buffer.flush()
 
       is_pipe: true
 
