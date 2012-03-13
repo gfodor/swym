@@ -33,7 +33,7 @@ public class V8OperationContext {
 
         try {
             flushToV8 = (V8Function)environment.invokeMethod(v8PipeClass, "get_flush_routine",
-                    outTupleBuffer.getBuffer(), eng.createFunction(this, "flushFromV8"), pipeId);
+                    outTupleBuffer.getBuffer(), inTupleBuffer.getBuffer(), pipeId);
         } catch (NoSuchMethodException e) {
             throw new RuntimeException(e);
         } catch (ScriptException e) {
@@ -63,10 +63,6 @@ public class V8OperationContext {
         this.outTupleBuffer.fillV8Arrays();
         flushToV8.invokeVoid();
         this.outTupleBuffer.clear();
-    }
-
-    public void flushFromV8() {
-        System.out.println("Flushing from V8");
     }
 
     public void closeGroup() {

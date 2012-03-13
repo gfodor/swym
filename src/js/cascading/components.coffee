@@ -169,19 +169,21 @@ define ["underscore"], (_) ->
         processor = @pipes[pipe_id].processor
         finalizer = @pipes[pipe_id].finalizer
         ->
+          tuple = {}
 
           while true
             count = 0
+            tuple = { word: in_buffer.word() }
 
             while true
               count += 1
               break unless in_buffer.next_arg()
 
-            out_buffer.count(count)
+            tuple.count = count
+            out_buffer.count(tuple.count)
+            out_buffer.next_result()
 
             break unless in_buffer.next_group()
-
-          out_buffer.flush()
 
       is_pipe: true
 

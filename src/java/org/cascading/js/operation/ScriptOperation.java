@@ -69,6 +69,7 @@ public abstract class ScriptOperation extends BaseOperation<V8OperationContext> 
             typeMap.put("line", JSType.STRING);
             typeMap.put("count", JSType.INT);
             typeMap.put("offset", JSType.STRING);
+            typeMap.put("___swym_stub_gk_0", JSType.STRING);
 
             V8OperationContext ctx = new V8OperationContext(env, v8PipeClass, pipeId, getGroupingFields(),
                     operationCall.getArgumentFields().subtract(getGroupingFields()), resultFields, typeMap);
