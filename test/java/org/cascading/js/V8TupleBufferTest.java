@@ -264,6 +264,18 @@ public class V8TupleBufferTest {
         assertEquals(eng.eval("buf.s()"), null);
         assertEquals(eng.eval("buf.i2()"), null);
 
+        eng.eval("buf.i(456)");
+        eng.eval("buf.d(0.11)");
+        eng.eval("buf.b(true)");
+        eng.eval("buf.s('ouch')");
+        eng.eval("buf.i2(999)");
+
+        assertEquals(eng.eval("buf.i()"), 456);
+        assertEquals(eng.eval("buf.d()"), 0.11);
+        assertEquals(eng.eval("buf.b()"), true);
+        assertEquals(eng.eval("buf.s()"), "ouch");
+        assertEquals(eng.eval("buf.i2()"), 999);
+
         env.shutdown();
     }
 
