@@ -47,7 +47,15 @@ public class ScriptBuffer extends ScriptOperation implements Buffer<V8OperationC
             ctx.addArgument(next);
 
             if (ctx.isFull()) {
-                ctx.flushToV8();
+                ctx.closeGroup();
+
+                boolean isEndOfGroup = !arguments.hasNext();
+
+                ctx.flushToV8(isEndOfGroup, false);
+
+                if (!isEndOfGroup) {
+                    ctx.addGroup(group);
+                }
             }
 
             timeSetArg += (System.currentTimeMillis() - t0);
@@ -65,7 +73,7 @@ public class ScriptBuffer extends ScriptOperation implements Buffer<V8OperationC
     public void cleanup(cascading.flow.FlowProcess flowProcess, cascading.operation.OperationCall<V8OperationContext> call) {
         super.cleanup(flowProcess, call);
         call.getContext().closeGroup();
-        call.getContext().flushToV8();
+        call.getContext().flushToV8(true, true);
         System.out.println("Buffer time: " + (System.currentTimeMillis() - t0) + " " + timeInInvoke + " " + timeSetArg + " " + timeSetGroup);
         call.getContext().getEnvironment().shutdown();
     }

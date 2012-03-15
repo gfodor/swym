@@ -168,22 +168,33 @@ define ["underscore"], (_) ->
         initializer = @pipes[pipe_id].initializer
         processor = @pipes[pipe_id].processor
         finalizer = @pipes[pipe_id].finalizer
-        ->
-          tuple = {}
+        prev_word = null
+        # TODO move count outside of closure
+        # OR store count at the end of every iteration, maybe pull from
+        # out_buffer?
+        # Add signal bit to signify end of group
+        # if signal bit is zero, do not call next_result()?
 
+        count = 0
+
+        (last_group_is_complete, input_is_complete) ->
           while true
-            count = 0
-            tuple = { word: in_buffer.word() }
+            word = in_buffer.word()
 
             while true
-              count += 1
               break unless in_buffer.next_arg()
 
-            tuple.count = count
-            out_buffer.count(tuple.count)
-            out_buffer.next_result()
+            has_another_group = in_buffer.next_group()
 
-            break unless in_buffer.next_group()
+            if has_another_group || last_group_is_complete
+              out_buffer.___swym_stub_gk_0(word)
+              out_buffer.count(count)
+              out_buffer.next_result()
+              count = 0
+
+            break unless has_another_group
+
+          out_buffer.flush() if input_is_complete
 
       is_pipe: true
 

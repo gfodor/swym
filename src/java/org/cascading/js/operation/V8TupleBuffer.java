@@ -1,7 +1,9 @@
 package org.cascading.js.operation;
 
 import cascading.tuple.Fields;
+import cascading.tuple.Tuple;
 import cascading.tuple.TupleEntry;
+import cascading.tuple.TupleEntryCollector;
 import lu.flier.script.V8Array;
 import lu.flier.script.V8Function;
 import lu.flier.script.V8ScriptEngine;
@@ -19,7 +21,7 @@ import java.util.Map;
  * Uber-buffer
  */
 public class V8TupleBuffer {
-    public static int BUFFER_SIZE = 8 * 1024;
+    public static int BUFFER_SIZE = 32 * 1024;
 
     private V8ScriptEngine eng;
 
@@ -70,11 +72,14 @@ public class V8TupleBuffer {
     // Cached V8Arrays Set, iField
     private final V8Array[][] v8DataArrays = new V8Array[FieldSet.values().length][];
 
+    private TupleEntryCollector outCollector;
+
     public static V8TupleBuffer newInput(V8ScriptEngine eng, Fields resultFields, Map<String, JSType> typeMap) {
         V8TupleBuffer buffer = new V8TupleBuffer(eng, new Fields(), new Fields(), resultFields, typeMap);
 
         // Initialize v8 arrays of appropriate sizes
         buffer.fillV8Arrays();
+
         return buffer;
     }
 
@@ -204,6 +209,12 @@ public class V8TupleBuffer {
         clear();
     }
 
+    public void setOutCollector(TupleEntryCollector out) {
+        if (this.outCollector != out) {
+            this.outCollector = out;
+        }
+    }
+
     private void addFunctionToTuple(String name) {
         Bindings scope = eng.getBindings(ScriptContext.ENGINE_SCOPE);
 
@@ -278,8 +289,9 @@ public class V8TupleBuffer {
 
             setTupleAccessor("flush",
                     "this.flushFromV8(this.i_result); this.i_result = 0; " +
+                    "var mask = this[" + FieldSet.RESULT.idx + "][" + nullMaskJsArrayIndex + "];" +
                     "for (var i = 0; i < " + (BUFFER_SIZE / 32) + "; i++) { " +
-                    "  this[" + FieldSet.RESULT.idx + "][" + nullMaskJsArrayIndex + "][i] = 0;" +
+                    "  mask[i] = 0;" +
                     "}"
             );
         }
@@ -326,7 +338,48 @@ public class V8TupleBuffer {
     }
 
     public void flushFromV8(Object[] args) {
-        this.fillJavaArrays((Integer)args[0]);
+        int numberOfTuples = (Integer)args[0];
+        this.fillJavaArrays(numberOfTuples);
+
+        if (outCollector != null) {
+            final int setIdx = FieldSet.RESULT.idx;
+            final int[] fieldTypes = this.fieldTypes[setIdx];
+            final int[] fieldOffsets = this.cascadingFieldOffsets[setIdx];
+            final int[] fieldDataOffsets = this.fieldDataOffsets[setIdx];
+
+            for (int iTuple = 0; iTuple < numberOfTuples; iTuple++) {
+                Tuple tuple = Tuple.size(fieldTypes.length);
+
+                for (int iField = 0; iField < fieldTypes.length; iField++) {
+                    int fieldOffset = fieldOffsets[iField];
+                    int jsType = fieldTypes[iField];
+                    int fieldDataOffset = fieldDataOffsets[iField];
+
+                    switch (jsType) {
+                        case 0: // INT
+                            tuple.set(fieldOffset, jIntData[setIdx][fieldDataOffset][iTuple]);
+                            break;
+                        case 1: // LONG
+                            tuple.set(fieldOffset, jLongData[setIdx][fieldDataOffset][iTuple]);
+                            break;
+                        case 2: // BOOL
+                            tuple.set(fieldOffset, jBoolData[setIdx][fieldDataOffset][iTuple]);
+                            break;
+                        case 3: // DOUBLE
+                            tuple.set(fieldOffset, jDoubleData[setIdx][fieldDataOffset][iTuple]);
+                            break;
+                        case 4: // DATE
+                            tuple.set(fieldOffset, jDateData[setIdx][fieldDataOffset][iTuple]);
+                            break;
+                        case 5: // STRING
+                            tuple.set(fieldOffset, jStringData[setIdx][fieldDataOffset][iTuple]);
+                            break;
+                    }
+                }
+
+                outCollector.add(new TupleEntry(tuple));
+            }
+        }
     }
 
     public void fillJavaArrays(int numberOfTuples) {

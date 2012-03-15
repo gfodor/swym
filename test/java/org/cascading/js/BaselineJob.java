@@ -32,7 +32,7 @@ public class BaselineJob {
     public void baselineTest() {
 // define source and sink Taps.
         Scheme sourceScheme = new TextLine(new Fields("word"));
-        Tap source = new Hfs(sourceScheme, "tinywordlist.txt");
+        Tap source = new Hfs(sourceScheme, "words3.txt");
 
         Scheme sinkScheme = new TextLine(new Fields("word", "count"));
         Tap sink = new Hfs(sinkScheme, "output", SinkMode.REPLACE);

@@ -17,7 +17,6 @@ public class V8OperationContext {
     private V8TupleBuffer inTupleBuffer;
 
     private Environment environment;
-    private TupleEntryCollector outputEntryCollector;
     private V8Function flushToV8;
 
     public Environment getEnvironment() {
@@ -42,9 +41,7 @@ public class V8OperationContext {
     }
 
     public void setOutputEntryCollector(TupleEntryCollector out) {
-        if (this.outputEntryCollector != out) {
-            this.outputEntryCollector = out;
-        }
+        inTupleBuffer.setOutCollector(out);
     }
 
     public void addArgument(TupleEntry argument) {
@@ -59,9 +56,9 @@ public class V8OperationContext {
         return this.outTupleBuffer.isFullForArguments();
     }
 
-    public void flushToV8() {
+    public void flushToV8(boolean finalizeGroup, boolean finalizeBuffer) {
         this.outTupleBuffer.fillV8Arrays();
-        flushToV8.invokeVoid();
+        flushToV8.invoke(finalizeGroup, finalizeBuffer);
         this.outTupleBuffer.clear();
     }
 
