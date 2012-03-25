@@ -165,32 +165,54 @@ define ["underscore"], (_) ->
           current_offsets[type_idx] += 1
 
       @get_flush_routine: (in_buffer, out_buffer, pipe_id) =>
-        initializer = @pipes[pipe_id].initializer
-        processor = @pipes[pipe_id].processor
-        finalizer = @pipes[pipe_id].finalizer
-        prev_word = null
-        # TODO move count outside of closure
-        # OR store count at the end of every iteration, maybe pull from
-        # out_buffer?
-        # Add signal bit to signify end of group
-        # if signal bit is zero, do not call next_result()?
+        pipe = @pipes[pipe_id]
+        initializer = pipe.initializer
+        processor = pipe.processor
+        finalizer = pipe.finalizer
 
-        count = 0
+        initialized = false
+
+        group_fields = pipe.group_fields
+        non_group_in_fields = _.difference(pipe.incoming, group_fields)
+        non_group_out_fields = _.difference(pipe.outgoing, group_fields)
+        num_group_fields = group_fields.length
+        stub_fields = _.map [0...num_group_fields], (i) -> "___swym_stub_gk_#{i}"
+
+        current_group = {}
+        tuple = {}
+
+        writer = (tuple) ->
+          for i_group_field in [0...num_group_fields]
+            out_buffer[stub_fields[i_group_field]](current_group[group_fields[i_group_field]])
+
+          for field in non_group_out_fields
+            out_buffer[field](tuple[field])
+
+          out_buffer.next_result()
 
         (last_group_is_complete, input_is_complete) ->
           while true
-            word = in_buffer.word()
+            for group_field in group_fields
+              val = in_buffer[group_field]()
+              tuple[group_field] = current_group[group_field] = val
 
             while true
+              for field in non_group_in_fields
+                tuple[field] = in_buffer[field]()
+
+              unless initialized
+                initializer(tuple)
+                initialized = true
+
+              processor(tuple, writer)
+
               break unless in_buffer.next_arg()
 
             has_another_group = in_buffer.next_group()
 
             if has_another_group || last_group_is_complete
-              out_buffer.___swym_stub_gk_0(word)
-              out_buffer.count(count)
-              out_buffer.next_result()
-              count = 0
+              finalizer(tuple, writer)
+              initializer(tuple)
 
             break unless has_another_group
 

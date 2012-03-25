@@ -11,12 +11,11 @@ job ($, _) ->
       count = 0
 
       $.foreach_group ["word"], { add: ["count"], types: { count: "int" } },
-        ((group, argument, out, flush) ->
-          count = 0),
-        ((group, argument, out, flush) ->
+        ((tuple) -> count = 0),
+        ((tuple, writer) ->
           count += 1),
-        ((group, argument, out, flush) ->
-          out.count(count)
+        ((tuple, writer) ->
+          writer({count: count})
           )
 
         #$.aggregate "count", (keys, values, context) ->
