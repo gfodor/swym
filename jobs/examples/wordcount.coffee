@@ -1,9 +1,9 @@
 job ($, _) ->
   $.flow 'word count', ->
-    $.source 'input', $.tap("test.txt", $.text_line_scheme("offset", "line"))
+    $.source 'input', $.tap("test.txt", $.text_line_scheme("line"))
 
     assembly = $.assembly 'input', ->
-      $.map add: { word: "string" }, remove: ["line", "offset"], (tuple, writer) ->
+      $.map add: { word: "string" }, remove: ["line"], (tuple, writer) ->
         for word in tuple.line.match(/\S+/g)
           writer word: word
 

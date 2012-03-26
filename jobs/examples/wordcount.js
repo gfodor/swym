@@ -3,14 +3,14 @@
   job(function($, _) {
     return $.flow('word count', function() {
       var assembly;
-      $.source('input', $.tap("test.txt", $.text_line_scheme("offset", "line")));
+      $.source('input', $.tap("test.txt", $.text_line_scheme("line")));
       assembly = $.assembly('input', function() {
         var count;
         $.map({
           add: {
             word: "string"
           },
-          remove: ["line", "offset"]
+          remove: ["line"]
         }, function(tuple, writer) {
           var word, _i, _len, _ref, _results;
           _ref = tuple.line.match(/\S+/g);

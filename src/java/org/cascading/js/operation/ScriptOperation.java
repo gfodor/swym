@@ -28,7 +28,7 @@ public abstract class ScriptOperation extends BaseOperation<V8OperationContext> 
     public ScriptOperation(Fields argumentSelector, Map<String, JSType> incomingTypes,
                            Fields resultFields, Map<String, JSType> resultTypes,
                            Environment.EnvironmentArgs environmentArgs, int pipeId) {
-        super(resultFields.size(), resultFields);
+        super(argumentSelector.size(), resultFields);
 
         this.argumentSelector = argumentSelector;
         this.resultFields = resultFields;
