@@ -12,7 +12,6 @@ import org.cascading.js.util.Environment;
 
 import javax.script.ScriptException;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 
 public abstract class ScriptOperation extends BaseOperation<V8OperationContext> {
@@ -20,16 +19,22 @@ public abstract class ScriptOperation extends BaseOperation<V8OperationContext> 
     protected int pipeId;
     protected Fields argumentSelector;
     protected Fields resultFields;
+    protected Map<String, JSType> incomingTypes;
+    protected Map<String, JSType> resultTypes;
 
     private boolean isFunction = false;
     private boolean isBuffer = false;
 
-    public ScriptOperation(Fields argumentSelector, Fields resultFields, Environment.EnvironmentArgs environmentArgs, int pipeId) {
+    public ScriptOperation(Fields argumentSelector, Map<String, JSType> incomingTypes,
+                           Fields resultFields, Map<String, JSType> resultTypes,
+                           Environment.EnvironmentArgs environmentArgs, int pipeId) {
         super(resultFields.size(), resultFields);
 
         this.argumentSelector = argumentSelector;
         this.resultFields = resultFields;
         this.environmentArgs = environmentArgs;
+        this.incomingTypes = incomingTypes;
+        this.resultTypes = resultTypes;
         this.pipeId = pipeId;
 
         if (this instanceof Buffer) {
@@ -64,15 +69,8 @@ public abstract class ScriptOperation extends BaseOperation<V8OperationContext> 
             V8Object v8PipeClass = (V8Object)env.extractObject("__v8PipeClass");
             env.evaluateScript("delete __v8PipeClass");
 
-            Map<String, JSType> typeMap = new HashMap<String, JSType>();
-            typeMap.put("word", JSType.STRING);
-            typeMap.put("line", JSType.STRING);
-            typeMap.put("count", JSType.INT);
-            typeMap.put("offset", JSType.STRING);
-            typeMap.put("___swym_stub_gk_0", JSType.STRING);
-
             V8OperationContext ctx = new V8OperationContext(env, v8PipeClass, pipeId, getGroupingFields(),
-                    operationCall.getArgumentFields().subtract(getGroupingFields()), resultFields, typeMap);
+                    operationCall.getArgumentFields().subtract(getGroupingFields()), resultFields, incomingTypes, resultTypes);
 
             operationCall.setContext(ctx);
 

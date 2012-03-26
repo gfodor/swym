@@ -6,16 +6,27 @@ import cascading.operation.BufferCall;
 import cascading.operation.OperationCall;
 import cascading.tuple.Fields;
 import cascading.tuple.TupleEntry;
+import org.cascading.js.JSType;
 import org.cascading.js.util.Environment;
 
 import java.util.Iterator;
+import java.util.Map;
 
 public class ScriptBuffer extends ScriptOperation implements Buffer<V8OperationContext> {
     private Fields groupingFields;
 
-    public ScriptBuffer(Fields groupingFields, Fields argumentSelector, Fields resultFields, Environment.EnvironmentArgs environmentArgs, int pipeId) {
-        super(argumentSelector, resultFields, environmentArgs, pipeId);
+    public ScriptBuffer(Fields groupingFields, Fields argumentSelector, Map<String, JSType> incomingTypes,
+                        Fields resultFields, Map<String, JSType> resultTypes,
+                        Environment.EnvironmentArgs environmentArgs, int pipeId) {
+        super(argumentSelector, incomingTypes, resultFields, resultTypes, environmentArgs, pipeId);
+
         this.groupingFields = groupingFields;
+
+        // Add stubbed fields
+        for (int iField = 0; iField < groupingFields.size(); iField++) {
+            this.incomingTypes.put(STUB_FIELD_PREFIX + iField, incomingTypes.get(groupingFields.get(iField).toString()));
+            this.resultTypes.put(STUB_FIELD_PREFIX + iField, incomingTypes.get(groupingFields.get(iField).toString()));
+        }
     }
 
     @Override

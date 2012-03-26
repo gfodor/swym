@@ -13,8 +13,8 @@ import javax.script.ScriptException;
 import java.util.Map;
 
 public class V8OperationContext {
-    private V8TupleBuffer outTupleBuffer;
-    private V8TupleBuffer inTupleBuffer;
+    private V8TupleBuffer toV8TupleBuffer;
+    private V8TupleBuffer fromV8TupleBuffer;
 
     private Environment environment;
     private V8Function flushToV8;
@@ -23,16 +23,19 @@ public class V8OperationContext {
         return environment;
     }
 
-    public V8OperationContext(Environment environment, V8Object v8PipeClass, int pipeId, Fields groupingFields, Fields argumentFields, Fields resultFields, Map<String, JSType> typeMap) {
+    public V8OperationContext(Environment environment, V8Object v8PipeClass, int pipeId, Fields groupingFields,
+                              Fields argumentFields, Fields resultFields,
+                              Map<String, JSType> incomingTypes, Map<String, JSType> outgoingTypes) {
+
         this.environment = environment;
         V8ScriptEngine eng = environment.getEngine();
 
-        outTupleBuffer = V8TupleBuffer.newOutput(eng, groupingFields, argumentFields, typeMap);
-        inTupleBuffer = V8TupleBuffer.newInput(eng, resultFields, typeMap);
+        toV8TupleBuffer = V8TupleBuffer.newOutput(eng, groupingFields, argumentFields, incomingTypes);
+        fromV8TupleBuffer = V8TupleBuffer.newInput(eng, resultFields, outgoingTypes);
 
         try {
             flushToV8 = (V8Function)environment.invokeMethod(v8PipeClass, "get_flush_routine",
-                    outTupleBuffer.getBuffer(), inTupleBuffer.getBuffer(), pipeId);
+                    toV8TupleBuffer.getBuffer(), fromV8TupleBuffer.getBuffer(), pipeId);
         } catch (NoSuchMethodException e) {
             throw new RuntimeException(e);
         } catch (ScriptException e) {
@@ -41,29 +44,29 @@ public class V8OperationContext {
     }
 
     public void setOutputEntryCollector(TupleEntryCollector out) {
-        inTupleBuffer.setOutCollector(out);
+        fromV8TupleBuffer.setOutCollector(out);
     }
 
     public void addArgument(TupleEntry argument) {
-        this.outTupleBuffer.addArgument(argument);
+        this.toV8TupleBuffer.addArgument(argument);
     }
 
     public void addGroup(TupleEntry group) {
-        this.outTupleBuffer.addGroup(group);
+        this.toV8TupleBuffer.addGroup(group);
     }
 
     public boolean isFull() {
-        return this.outTupleBuffer.isFullForArguments();
+        return this.toV8TupleBuffer.isFullForArguments();
     }
 
     public void flushToV8(boolean finalizeGroup, boolean finalizeBuffer) {
-        this.outTupleBuffer.fillV8Arrays();
+        this.toV8TupleBuffer.fillV8Arrays();
         flushToV8.invoke(finalizeGroup, finalizeBuffer);
-        this.outTupleBuffer.clear();
+        this.toV8TupleBuffer.clear();
     }
 
     public void closeGroup() {
-        this.outTupleBuffer.closeGroup();
+        this.toV8TupleBuffer.closeGroup();
     }
 
 }

@@ -16,6 +16,7 @@ import cascading.tap.Tap;
 import cascading.tuple.Fields;
 import lu.flier.script.V8Array;
 import lu.flier.script.V8Object;
+import org.cascading.js.JSType;
 import org.cascading.js.operation.ScriptBuffer;
 import org.cascading.js.operation.ScriptFunction;
 
@@ -50,16 +51,22 @@ public class Factory {
         return new Pipe(name, parent);
     }
 
-    public Pipe Each(V8Array argumentSelector, V8Array resultFields, Environment.EnvironmentArgs args, Integer pipeId, Pipe parent) {
+    public Pipe Each(V8Array argumentSelector, V8Object argumentTypes, V8Array resultFields, V8Object resultTypes, Environment.EnvironmentArgs args, Integer pipeId, Pipe parent) {
         try {
-            return new Each(parent, asFields(argumentSelector), new ScriptFunction(asFields(argumentSelector), asFields(resultFields), args, pipeId), Fields.RESULTS);
+            return new Each(parent, asFields(argumentSelector),
+                    new ScriptFunction(asFields(argumentSelector), asTypeMap(argumentTypes),
+                                       asFields(resultFields), asTypeMap(resultTypes),
+                                       args, pipeId), Fields.RESULTS);
         } catch (Exception e) {
             e.printStackTrace();
             return null;
         }
     }
 
-    public Pipe GroupByBuffer(V8Array groupingFields, V8Array sortFields, V8Array incoming, V8Array outgoing, Environment.EnvironmentArgs args, Integer pipeId, Pipe parent) {
+    public Pipe GroupByBuffer(V8Array groupingFields, V8Array sortFields,
+                              V8Array incoming, V8Object incomingTypes,
+                              V8Array outgoing, V8Object outgoingTypes,
+                              Environment.EnvironmentArgs args, Integer pipeId, Pipe parent) {
         try {
             Fields groupingFieldsFields = asFields(groupingFields);
             Fields stubFields = new Fields();
@@ -69,7 +76,10 @@ public class Factory {
 
             GroupBy groupBy = new GroupBy(parent, asFields(groupingFields), asFields(sortFields));
 
-            Buffer buffer = new ScriptBuffer(asFields(groupingFields), asFields(incoming), asFields(outgoing).subtract(groupingFieldsFields).append(stubFields), args, pipeId);
+            Buffer buffer = new ScriptBuffer(asFields(groupingFields), asFields(incoming), asTypeMap(incomingTypes),
+                                             asFields(outgoing).subtract(groupingFieldsFields).append(stubFields),
+                                             asTypeMap(outgoingTypes), args, pipeId);
+
             Pipe prev = new Every(groupBy, asFields(incoming), buffer, asFields(outgoing).append(stubFields));
 
             Fields currentFields = asFields(outgoing).append(stubFields);
@@ -124,5 +134,16 @@ public class Factory {
 
     public void run() {
         lastFlow.complete();
+    }
+
+    private Map<String, JSType> asTypeMap(V8Object object) {
+        Map<String, JSType> map = new HashMap<String, JSType>();
+
+        for (String name : object.keySet()) {
+            JSType type = JSType.forIdx((Integer)object.get(name));
+            map.put(name, type);
+        }
+
+        return map;
     }
 }

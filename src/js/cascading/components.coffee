@@ -289,7 +289,8 @@ define ["underscore", "./util"], (_, U) ->
 
       to_java: (parent_pipe) ->
         parent_jpipe = @parent_pipe?.to_java()
-        Cascading.Factory.Each(@incoming, @outgoing, Cascading.EnvironmentArgs, @pipe_id, parent_jpipe)
+        Cascading.Factory.Each(@incoming, @incoming_types, @outgoing, @outgoing_types,
+                               Cascading.EnvironmentArgs, @pipe_id, parent_jpipe)
 
   Every:
     class Every extends Pipe
@@ -333,7 +334,9 @@ define ["underscore", "./util"], (_, U) ->
 
       to_java: (parent_pipe) ->
         parent_jpipe = @parent_pipe?.to_java()
-        Cascading.Factory.GroupByBuffer(@group_fields, @sort_fields, @incoming, @outgoing,
+
+        Cascading.Factory.GroupByBuffer(@group_fields, @sort_fields,
+                                        @incoming, @incoming_types, @outgoing, @outgoing_types,
                                         Cascading.EnvironmentArgs, @pipe_id, parent_jpipe)
 
   CoGroup:

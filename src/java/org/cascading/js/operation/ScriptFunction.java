@@ -5,11 +5,16 @@ import cascading.operation.Function;
 import cascading.operation.FunctionCall;
 import cascading.tuple.Fields;
 import cascading.tuple.TupleEntry;
+import org.cascading.js.JSType;
 import org.cascading.js.util.Environment;
 
+import java.util.Map;
+
 public class ScriptFunction extends ScriptOperation implements Function<V8OperationContext> {
-    public ScriptFunction(Fields argumentSelector, Fields resultFields, Environment.EnvironmentArgs environmentArgs, int pipeId) {
-        super(argumentSelector, resultFields, environmentArgs, pipeId);
+    public ScriptFunction(Fields argumentSelector, Map<String, JSType> argumentTypes,
+                          Fields resultFields, Map<String, JSType> resultTypes,
+                          Environment.EnvironmentArgs environmentArgs, int pipeId) {
+        super(argumentSelector, argumentTypes, resultFields, resultTypes, environmentArgs, pipeId);
     }
 
     public void operate(FlowProcess flowProcess, FunctionCall<V8OperationContext> call) {
