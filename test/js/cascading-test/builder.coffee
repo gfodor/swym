@@ -9,7 +9,7 @@ listing_fields = [ "listing_id", "state", "user_id", "title", "description", "cr
   "state_tsz", "last_modified_tsz_epoch", "saturation", "brightness", "is_black_and_white"
 ]
 
-require { baseUrl: "lib/js" }, ["cascading/builder", "cascading/schemes", "underscore"], (builder, schemes, _) ->
+require { baseUrl: "lib/js" }, ["cascading/builder", "cascading/schemes", "cascading/util", "underscore"], (builder, schemes, U, _) ->
   with_test_flow = (f) ->
     cascade = builder.cascade ($) ->
       $.flow 'word_counter', ->
@@ -23,10 +23,13 @@ require { baseUrl: "lib/js" }, ["cascading/builder", "cascading/schemes", "under
       with_test_flow ($) ->
         tap = $.source 'input', $.tap("listings.txt", $.text_line_scheme())
         expect(tap.outgoing).toEqual ["line"]
+        expect(tap.outgoing_types.line).toEqual U.type_idx_map.string
 
       with_test_flow ($) ->
         tap = $.source 'input', $.tap("listings.txt", $.text_line_scheme("offset", "line"))
         expect(tap.outgoing).toEqual ["offset", "line"]
+        expect(tap.outgoing_types.offset).toEqual U.type_idx_map.int
+        expect(tap.outgoing_types.line).toEqual U.type_idx_map.string
 
     it "should fail if trying to tap bad source name", ->
       expect_bad_flow "Unknown source bad_input for assembly", ($) ->
@@ -45,16 +48,27 @@ require { baseUrl: "lib/js" }, ["cascading/builder", "cascading/schemes", "under
         a2 = $.assembly 'input_2', ->
 
         expect(a1.head_pipe.incoming).toEqual ["offset", "line_1"]
+        expect(a1.head_pipe.incoming_types.offset).toEqual U.type_idx_map.int
+        expect(a1.head_pipe.incoming_types.line_1).toEqual U.type_idx_map.string
         expect(a1.head_pipe.outgoing).toEqual ["offset", "line_1"]
+        expect(a1.head_pipe.outgoing_types.offset).toEqual U.type_idx_map.int
+        expect(a1.head_pipe.outgoing_types.line_1).toEqual U.type_idx_map.string
+
         expect(a2.head_pipe.incoming).toEqual ["line_2"]
-        expect(a2.head_pipe.incoming).toEqual ["line_2"]
+        expect(a2.head_pipe.incoming_types.line_2).toEqual U.type_idx_map.string
 
     it "should fail if no sinks", ->
     it "should verify arity of map function", ->
     it "should verify arity of foreach_group function", ->
     it "should fail if no assembly for sink", ->
-    it "should fail if missing type info for a field", ->
+
     it "should fail if invalid type info for a field", ->
+      expect_bad_flow "Invalid type foo for count", ($) ->
+        $.source 'input', $.tap("listings.txt", $.text_line_scheme("offset", "line"))
+
+        $.assembly 'input', ->
+          $.foreach_group ["line"], add: { count: "foo" }
+
     it "should fail if duplicate assembly", ->
       expect_bad_flow "Duplicate assembly input", ($) ->
         $.source 'input', $.tap("listings.txt", $.text_line_scheme("offset", "line_1"))
@@ -90,27 +104,33 @@ require { baseUrl: "lib/js" }, ["cascading/builder", "cascading/schemes", "under
         $.source 'input', $.tap("listings.txt", $.text_line_scheme("offset", "line"))
 
         $.assembly 'input', ->
-          insert_step = $.map { add: ["upcase", "line_number"], remove: ["offset", "line"] }, (tuple, writer) ->
-            writer({ upcase: line.toUpperCase(), line_number: tuple.offset })
+          insert_step = $.map
+            add: { upcase: "string", line_number: "int" },
+            remove: ["offset", "line"], (tuple, writer) ->
+              writer upcase: tuple.line.toUpperCase(), line_number: tuple.offset
 
           expect(insert_step.incoming.sort()).toEqual ["line", "offset"].sort()
           expect(insert_step.outgoing.sort()).toEqual ["line_number", "upcase"].sort()
+          expect(insert_step.incoming_types.offset).toEqual U.type_idx_map.int
+          expect(insert_step.incoming_types.line).toEqual U.type_idx_map.string
+          expect(insert_step.outgoing_types.upcase).toEqual U.type_idx_map.string
+          expect(insert_step.outgoing_types.line_number).toEqual U.type_idx_map.int
 
     it "should exception if trying to rename an invalid field", ->
       expect_bad_flow "Invalid field bogus being removed", ($) ->
         $.source 'input', $.tap("listings.txt", $.text_line_scheme("offset", "line"))
 
         $.assembly 'input', ->
-          $.map { remove: ["bogus"] }, (tuple, writer) ->
-            writer({ upcase: line.toUpperCase() })
+          $.map remove: ["bogus"], (tuple, writer) ->
+            writer upcase: line.toUpperCase()
 
     it "should exception if bad spec argument", ->
       expect_bad_flow "Invalid argument bogus for field spec", ($) ->
         $.source 'input', $.tap("listings.txt", $.text_line_scheme("offset", "line"))
 
         $.assembly 'input', ->
-          $.map { bogus: ["line"] }, (tuple, writer) ->
-            writer({ upcase: line.toUpperCase() })
+          $.map bogus: ["line"], (tuple, writer) ->
+            writer upcase: line.toUpperCase()
 
     it "should connect each pipe correctly", ->
       with_test_flow ($) ->
@@ -119,7 +139,7 @@ require { baseUrl: "lib/js" }, ["cascading/builder", "cascading/schemes", "under
         step = null
 
         assembly = $.assembly 'input', ->
-          step = $.map { add: ["foo"] }, (tuple, writer) ->
+          step = $.map add: { foo: "string" }, (tuple, writer) ->
             tuple.foo = "bar"
             writer(tuple)
 
@@ -131,21 +151,21 @@ require { baseUrl: "lib/js" }, ["cascading/builder", "cascading/schemes", "under
         $.source 'input', $.tap("listings.txt", $.text_line_scheme("offset", "line"))
 
         $.assembly 'input', ->
-          $.map { add: ["word"], remove: ["line"] }, (tuple, writer) ->
+          $.map add: { word: "string" }, remove: ["line"], (tuple, writer) ->
             for word in tuple.line.match(/\S+/g)
-              writer({ word: word })
+              writer word: word
 
           $.map { }, (tuple, writer) ->
             tuple.word = tuple.word.toUpperCase()
             writer(tuple)
 
-          final_map = $.map { add: "word_copy" }, (tuple, writer) ->
+          final_map = $.map add: { word_copy: "string" }, (tuple, writer) ->
             tuple.word_copy = tuple.word
             writer(tuple)
 
           output = []
 
-          final_map.each.processor { line: "hello world" }, (out) ->
+          final_map.each.processor line: "hello world", (out) ->
             output[output.length] = out
 
           expect(output.length).toEqual(2)
@@ -169,14 +189,20 @@ require { baseUrl: "lib/js" }, ["cascading/builder", "cascading/schemes", "under
         first = null
 
         $.assembly 'input', ->
-          first = $.map { add: ["word"], remove: ["line"] }, (tuple, writer) ->
-          pipe = $.foreach_group ["word"], { add: ["count"] },
+          first = $.map add: { word: "string" }, remove: ["line"], (tuple, writer) ->
+            writer(word: tuple.line)
+
+          pipe = $.foreach_group ["word"], add: { count: "int" },
             ((keys, values, writer) ->),
             ((keys, writer) -> )
 
         expect(pipe.is_group_by?).toEqual(true)
         expect(pipe.incoming.length).toEqual(2)
+        expect(pipe.incoming_types.word).toEqual(U.type_idx_map.string)
+        expect(pipe.incoming_types.offset).toEqual(U.type_idx_map.int)
         expect(pipe.outgoing.length).toEqual(2)
         expect(pipe.outgoing[0]).toEqual("word")
         expect(pipe.outgoing[1]).toEqual("count")
+        expect(pipe.outgoing_types.word).toEqual(U.type_idx_map.string)
+        expect(pipe.outgoing_types.count).toEqual(U.type_idx_map.int)
         expect(pipe.parent_pipe.pipe_id).toEqual(first.each.pipe_id)

@@ -1,4 +1,4 @@
-define ["underscore"], (_) ->
+define ["underscore", "./util"], (_, U) ->
   EachTypes =
     GENERATOR: 0
     FILTER: 1
@@ -74,6 +74,7 @@ define ["underscore"], (_) ->
 
       constructor: (@path, @scheme) ->
         @outgoing = @scheme.fields
+        @outgoing_types = @scheme.field_types
         @is_bound = false
 
       to_java: ->
@@ -104,10 +105,10 @@ define ["underscore"], (_) ->
 
         unless @tail_pipe?
           @head_pipe = pipe
-          pipe.connect_to_incoming(@source.outgoing)
+          pipe.connect_to_incoming(@source)
         else
           pipe.parent_pipe = @tail_pipe
-          pipe.connect_to_incoming(@tail_pipe.outgoing)
+          pipe.connect_to_incoming(@tail_pipe)
 
         @tail_pipe = pipe
 
@@ -125,18 +126,10 @@ define ["underscore"], (_) ->
         @pipes ?= {}
         @pipes[pipe.pipe_id] = pipe
 
-      @type_idx_map:
-        int: 0
-        long: 1
-        bool: 2
-        double: 3
-        date: 4
-        string: 5
-
       @set_pipe_out_buffers: (out_buffers, pipe_id) =>
         pipe = @pipes[pipe_id]
         pipe.out_buffers = out_buffers
-        num_types = _.keys(@type_idx_map).length
+        num_types = _.keys(U.type_idx_map).length
         out_field_types = out_buffers[num_types]
         out_field_data_offsets = out_buffers[num_types + 1]
         out_num_fields_per_type = out_buffers[num_types + 2]
@@ -144,7 +137,7 @@ define ["underscore"], (_) ->
         current_offsets = []
         pipe.out_obj = {}
 
-        for type, idx of @type_idx_map
+        for type, idx of U.type_idx_map
           out_num_fields_per_type[idx] = 0
           current_offsets[current_offsets.length] = 0
 
@@ -225,25 +218,9 @@ define ["underscore"], (_) ->
         Pipe.register_pipe(this)
         assembly.add_pipe(this)
 
-      connect_to_incoming: (incoming) ->
-        @incoming = @outgoing = incoming
-
-      validate_types: (spec) ->
-        types = spec.types
-        types ?= {}
-
-        @outgoing_types = {}
-
-        for field in @outgoing
-          continue if @group_fields && _.include(@group_fields, field)
-
-          type = types[field]
-          throw new Error("Missing type spec for #{field}") unless type
-
-          type_idx = Pipe.type_idx_map[type]
-          throw new Error("Invalid type #{type} for #{field}") unless type_idx?
-
-          @outgoing_types[field] = type_idx
+      connect_to_incoming: (source) ->
+        @incoming = @outgoing = source.outgoing
+        @incoming_types = @outgoing_types = source.outgoing_types
 
       to_java: ->
         parent_jpipe = @parent_pipe?.to_java()
@@ -266,10 +243,12 @@ define ["underscore"], (_) ->
         throw new Error("Not an each step") unless step.is_each_step?
 
         tail_step = _.last(@steps)
-        step.connect_to_incoming(if tail_step then tail_step.outgoing else @incoming)
+        step.connect_to_incoming(if tail_step then tail_step else this)
 
         @steps[@steps.length] = step
+
         @outgoing = step.outgoing
+        @outgoing_types = step.outgoing_types
 
         # Re-generate the processor each time a new step is added
         @processor = @build_processor()
@@ -325,21 +304,32 @@ define ["underscore"], (_) ->
         throw new Error("Invalid group by fields #{@group_fields}") unless typeof(@group_fields) == "object"
         @sort_fields = @spec?.sort_fields ? []
 
-      connect_to_incoming: (incoming) ->
-        @incoming = incoming
+      connect_to_incoming: (source) ->
+        @incoming = source.outgoing
+        @incoming_types = source.outgoing_types
+
         @outgoing = @group_fields.slice(0)
+        @outgoing_types = {}
 
         for group_field in @group_fields
-          throw new Error("No such field #{group_field} in incoming") unless _.include(@incoming, group_field)
+          unless _.include(@incoming, group_field)
+            throw new Error("No such field #{group_field} in incoming")
+
+          unless @incoming_types[group_field]?
+            throw new Error("No such field #{group_field} in incoming types")
+
+          @outgoing_types[group_field] = @incoming_types[group_field]
 
         for k, v of @spec
           if k isnt "add" and k isnt "sort" and k isnt "types"
             throw new Error("Invalid argument #{k} for group by spec")
 
-        for add_field in @spec.add
-          @outgoing[@outgoing.length] = add_field
+        for add_field, add_type of @spec.add
+          type_idx = U.type_idx_map[add_type]
+          throw new Error("Invalid type #{add_type} for #{add_field}") unless type_idx?
 
-        @validate_types(@spec)
+          @outgoing[@outgoing.length] = add_field
+          @outgoing_types[add_field] = type_idx
 
       to_java: (parent_pipe) ->
         parent_jpipe = @parent_pipe?.to_java()
@@ -357,17 +347,31 @@ define ["underscore"], (_) ->
       constructor: (@each, @spec, @function) ->
         @each.add_step(this)
 
-      connect_to_incoming: (incoming) ->
-        @incoming = incoming
+      connect_to_incoming: (source) ->
+        if source.is_each?
+          @incoming = source.incoming
+          @incoming_types = source.incoming_types
+        else if source.is_each_step?
+          @incoming = source.outgoing
+          @incoming_types = source.outgoing_types
+        else
+          throw new Error("Cannot connect " + source + " to an each step")
+
         @outgoing = @incoming.slice(0)
+        @outgoing_types = _.clone(@incoming_types)
 
         for k, v of @spec
           if k isnt "add" and k isnt "remove"
             throw new Error("Invalid argument #{k} for field spec")
 
         if @spec.add?
-          for field in @spec.add
-            @outgoing[@outgoing.length] = field unless _.include(@outgoing, field)
+          for add_field, add_type of @spec.add
+            unless _.include(@outgoing, add_field)
+              type_idx = U.type_idx_map[add_type]
+              throw new Error("Invalid type #{add_type} for #{add_field}") unless type_idx?
+
+              @outgoing[@outgoing.length] = add_field
+              @outgoing_types[add_field] = type_idx
 
         if @spec.remove?
           for field in @spec.remove
@@ -375,3 +379,4 @@ define ["underscore"], (_) ->
             throw new Error("Invalid field #{field} being removed") if not _.include(@incoming, field)
 
             @outgoing = _.without @outgoing, field
+            delete @outgoing_types[field]
