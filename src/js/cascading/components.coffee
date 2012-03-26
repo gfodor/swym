@@ -159,13 +159,14 @@ define ["underscore", "./util"], (_, U) ->
 
       @get_flush_routine: (in_buffer, out_buffer, pipe_id) =>
         pipe = @pipes[pipe_id]
-        initializer = pipe.initializer
-        processor = pipe.processor
-        finalizer = pipe.finalizer
+
+        initializer = pipe.initializer ? ->
+        processor = pipe.processor ? ->
+        finalizer = pipe.finalizer ? ->
 
         initialized = false
 
-        group_fields = pipe.group_fields
+        group_fields = pipe.group_fields ? []
         non_group_in_fields = _.difference(pipe.incoming, group_fields)
         non_group_out_fields = _.difference(pipe.outgoing, group_fields)
         num_group_fields = group_fields.length

@@ -1,13 +1,12 @@
 job ($, _) ->
   $.flow 'word count', ->
-    $.source 'input', $.tap("words1.txt", $.text_line_scheme("offset", "word"))
+    $.source 'input', $.tap("test.txt", $.text_line_scheme("offset", "line"))
 
     assembly = $.assembly 'input', ->
-      #$.map { add: ["word", "word2"], remove: ["line", "offset"] }, (tuple, writer) ->
-      #  for word in tuple.line.match(/\S+/g)
-      #    writer({ word: word })
+      $.map add: { word: "string" }, remove: ["line", "offset"], (tuple, writer) ->
+        for word in tuple.line.match(/\S+/g)
+          writer word: word
 
-      last_key = null
       count = 0
 
       $.foreach_group ["word"], add: { count: "int" },

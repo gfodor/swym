@@ -20,12 +20,20 @@ public class ScriptFunction extends ScriptOperation implements Function<V8Operat
     public void operate(FlowProcess flowProcess, FunctionCall<V8OperationContext> call) {
         TupleEntry entry = call.getArguments();
         V8OperationContext ctx = call.getContext();
-
         ctx.addArgument(entry);
+        ctx.setOutputEntryCollector(call.getOutputCollector());
+
+        if (ctx.isFull()) {
+            ctx.closeGroup();
+            ctx.flushToV8(true, false);
+        }
     }
 
-    public void cleanup(cascading.flow.FlowProcess flowProcess, cascading.operation.OperationCall<V8OperationContext> operationCall) {
-        operationCall.getContext().getEnvironment().shutdown();
+    public void cleanup(cascading.flow.FlowProcess flowProcess, cascading.operation.OperationCall<V8OperationContext> call) {
+        super.cleanup(flowProcess, call);
+        call.getContext().closeGroup();
+        call.getContext().flushToV8(true, true);
+        call.getContext().getEnvironment().shutdown();
     }
 }
 

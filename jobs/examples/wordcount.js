@@ -3,10 +3,26 @@
   job(function($, _) {
     return $.flow('word count', function() {
       var assembly;
-      $.source('input', $.tap("words1.txt", $.text_line_scheme("offset", "word")));
+      $.source('input', $.tap("test.txt", $.text_line_scheme("offset", "line")));
       assembly = $.assembly('input', function() {
-        var count, last_key;
-        last_key = null;
+        var count;
+        $.map({
+          add: {
+            word: "string"
+          },
+          remove: ["line", "offset"]
+        }, function(tuple, writer) {
+          var word, _i, _len, _ref, _results;
+          _ref = tuple.line.match(/\S+/g);
+          _results = [];
+          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+            word = _ref[_i];
+            _results.push(writer({
+              word: word
+            }));
+          }
+          return _results;
+        });
         count = 0;
         return $.foreach_group(["word"], {
           add: {

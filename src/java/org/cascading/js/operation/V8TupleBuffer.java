@@ -251,7 +251,7 @@ public class V8TupleBuffer {
             }
         }
 
-        if (groupingFields.size() > 0) {
+        if (resultFields.size() == 0) {
             setTupleAccessor("next_group",
                     "var group_sizes = this[" + groupSizeRLEJsIndex + "]; var i_group_rle = this.i_group_rle; " +
                             "var primary = group_sizes[i_group_rle]; " +
@@ -277,8 +277,6 @@ public class V8TupleBuffer {
                             "    this.i_arg += 1; this.i_arg_for_group += 1; return true; " +
                             "   } else { return false; }" +
                             "} ");
-        } else if (argumentFields.size() > 0) {
-            // todo next_arg for non-grouping mode
         } else if (resultFields.size() > 0) {
             setTupleAccessor("next_result",
                "this.i_result += 1;" +
